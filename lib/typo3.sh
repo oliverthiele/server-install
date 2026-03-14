@@ -1,0 +1,418 @@
+#!/bin/bash
+
+# TYPO3 installation and configuration
+
+installTypo3() {
+  echo "INFO Install TYPO3 ${typo3Version}"
+
+  chown www-data:www-data /var/www/ -R
+
+  cd ${wwwRoot} || exit
+
+  # Check if TYPO3 directory already exists
+  if [ -d "/var/www/typo3" ] && [ -f "/var/www/typo3/composer.json" ]; then
+    echo "INFO TYPO3 directory already exists - skipping create-project"
+    echo "INFO Continuing with existing installation"
+  else
+    # Remove directory if it exists but is incomplete
+    if [ -d "/var/www/typo3" ]; then
+      echo "WARN Removing incomplete TYPO3 directory"
+      rm -rf /var/www/typo3
+    fi
+
+    sudo -i -H -u www-data composer create-project "typo3/cms-base-distribution:${typo3Version}" /var/www/typo3/
+  fi
+
+  cd ${composerDirectory} || exit
+
+  # Add Extension directory for custom extensions and sitepackages
+  mkdir -p packages
+
+  # Configure local repository if not already configured
+  if ! grep -q '"type": "path"' "${composerDirectory}composer.json" 2>/dev/null; then
+    sudo -i -H -u www-data composer --file="${composerDirectory}composer.json" config repositories.local '{"type": "path", "url": "./packages/*"}'
+  fi
+
+  # Install dotenv for environment configuration
+  echo "INFO Installing dotenv"
+  sudo -u www-data sh -c "cd ${composerDirectory} && composer require vlucas/phpdotenv --no-interaction" || echo "WARN dotenv installation had issues, continuing..."
+
+  # Install recommended system extensions
+  echo "INFO Installing system extensions"
+  sudo -u www-data sh -c "cd ${composerDirectory} && composer require --no-interaction \
+      typo3/cms-adminpanel:${typo3Version} \
+      typo3/cms-lowlevel:${typo3Version} \
+      typo3/cms-redirects:${typo3Version} \
+      typo3/cms-recycler:${typo3Version} \
+      typo3/cms-workspaces:${typo3Version} \
+      typo3/cms-linkvalidator:${typo3Version} \
+      typo3/cms-reports:${typo3Version} \
+      typo3/cms-opendocs:${typo3Version} \
+      typo3/cms-scheduler:${typo3Version}" || echo "WARN Some system extensions had issues, continuing..."
+
+  # Install useful extensions
+  echo "INFO Installing useful extensions"
+  sudo -u www-data sh -c "cd ${composerDirectory} && composer require --no-interaction plan2net/webp" || echo "WARN webp extension had issues, continuing..."
+
+  # Add dev packages
+  echo "INFO Installing dev dependencies"
+  sudo -u www-data sh -c "cd ${composerDirectory} && composer require --dev --no-interaction --with-all-dependencies typo3/coding-standards ssch/typo3-rector" || echo "WARN Dev dependencies had issues, continuing..."
+
+  # Setup coding standards (only if typo3-coding-standards is installed)
+  if [ -f "${composerDirectory}vendor/bin/typo3-coding-standards" ]; then
+    echo "INFO Setting up coding standards"
+    sudo -u www-data sh -c "cd ${composerDirectory} && composer exec typo3-coding-standards setup project" || echo "WARN Coding standards setup had issues, continuing..."
+  fi
+
+  # Install typo3-console for automated installation and CLI tasks
+  echo "INFO Installing typo3-console"
+  sudo -u www-data sh -c "cd ${composerDirectory} && composer require --no-interaction helhum/typo3-console" || echo "WARN typo3-console installation had issues, continuing..."
+
+  # Set permissions
+  find ${composerDirectory} -type d -print0 | xargs -0 chmod 2770
+  find ${composerDirectory} -type f ! -perm /u=x,g=x,o=x -print0 | xargs -0 chmod 0660
+
+  chown www-data: /var/www/ -R
+
+  # Add CLI aliases for www-data user
+  if test -f "${composerDirectory}vendor/bin/typo3cms"; then
+    echo "alias typo3cms='${composerDirectory}vendor/bin/typo3cms'" >>/var/www/.zshrc
+  fi
+
+  if test -f "${composerDirectory}vendor/bin/typo3"; then
+    echo "alias typo3='${composerDirectory}vendor/bin/typo3'" >>/var/www/.zshrc
+  fi
+}
+
+activateTypo3() {
+  echo "INFO Activate TYPO3 installation"
+
+  # Create FIRST_INSTALL file to enable setup
+  cd ${typo3PublicDirectory} || exit
+  touch FIRST_INSTALL
+
+  # Create .env example file
+  cat >/var/www/typo3/.env.example <<'EOL'
+PROJECT_NAME=""
+# Domain without scheme (used for trustedHostPattern)
+DOMAIN=""
+
+DB_DB=""
+DB_USER=""
+DB_PASS=""
+DB_HOST="localhost"
+
+ENCRYPTION_KEY=""
+TYPO3_INSTALL_TOOL=""
+
+SMTP_SERVER=""
+SMTP_USER=""
+SMTP_PASSWORD=""
+# Bool: 0 / 1
+SMTP_TRANSPORT_ENCRYPT=0
+
+DEFAULT_MAIL_FROM_ADDRESS=""
+DEFAULT_MAIL_FROM_NAME=""
+DEFAULT_MAIL_REPLY_TO_ADDRESS=""
+DEFAULT_MAIL_REPLY_TO_NAME=""
+EOL
+
+  # Create .env files with actual values
+  # Set default mail from address based on domain
+  if [[ "${serverDomain}" != "_" ]]; then
+    defaultMailFrom="noreply@${serverDomain}"
+  else
+    defaultMailFrom=""
+  fi
+
+  # Generate TYPO3 Install Tool password hash (Argon2id)
+  echo "INFO Generating TYPO3 Install Tool password hash"
+  installToolHash=$(php -r "echo password_hash('${systemPass}', PASSWORD_ARGON2ID);")
+
+  cat >/var/www/typo3/.env <<EOL
+PROJECT_NAME="TYPO3 CMS"
+# Domain without scheme (used for trustedHostPattern)
+DOMAIN="${serverDomain}"
+
+DB_DB="${databaseName}"
+DB_USER="${databaseUser}"
+DB_PASS="${databasePassword}"
+DB_HOST="localhost"
+
+ENCRYPTION_KEY="${encryptionKey}"
+TYPO3_INSTALL_TOOL="${installToolHash}"
+
+SMTP_SERVER=""
+SMTP_USER=""
+SMTP_PASSWORD=""
+# Bool: 0 / 1
+SMTP_TRANSPORT_ENCRYPT=0
+
+DEFAULT_MAIL_FROM_ADDRESS="${defaultMailFrom}"
+DEFAULT_MAIL_FROM_NAME="TYPO3 CMS"
+DEFAULT_MAIL_REPLY_TO_ADDRESS=""
+DEFAULT_MAIL_REPLY_TO_NAME=""
+EOL
+
+  # Copy for development environment
+  cp -ap /var/www/typo3/.env /var/www/typo3/.env.development
+
+  # Set ownership
+  chown www-data:www-data /var/www/typo3/.env*
+
+  # Create settings directory
+  mkdir -p ${pathSettings}
+
+  # Create additional.php configuration1
+  cat >${pathAdditionalSettings} <<'EOPHP'
+<?php
+
+declare(strict_types=1);
+
+defined('TYPO3') or die();
+
+use TYPO3\CMS\Core\Core\Environment;
+
+$context = Environment::getContext();
+
+/**
+ * Load environment variables with fallback
+ * Tries dotenv first, falls back to manual parsing if unavailable or fails
+ */
+$envPath = dirname(__DIR__, 2);
+$envFile = '.env';
+
+// Determine env file based on context
+if ($context->isDevelopment()) {
+    $envFile = '.env.development';
+} elseif ($context->isProduction() && $context->__toString() === 'Production/Staging') {
+    $envFile = '.env.staging';
+}
+
+// Try to load with dotenv (recommended)
+if (class_exists('\Dotenv\Dotenv')) {
+    try {
+        $dotenv = \Dotenv\Dotenv::createImmutable($envPath, $envFile);
+        $dotenv->load();
+    } catch (\Exception $e) {
+        // Fallback to manual parsing
+        $envFilePath = $envPath . '/' . $envFile;
+        if (file_exists($envFilePath)) {
+            $lines = file($envFilePath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            foreach ($lines as $line) {
+                if (strpos(trim($line), '#') === 0) {
+                    continue;
+                }
+                if (strpos($line, '=') !== false) {
+                    [$key, $value] = explode('=', $line, 2);
+                    $key = trim($key);
+                    $value = trim($value, " \t\n\r\0\x0B\"'");
+                    $_ENV[$key] = $value;
+                    putenv("$key=$value");
+                }
+            }
+        }
+    }
+}
+
+/**
+ * System configuration (applies to all environments)
+ */
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['folderCreateMask'] = '2770';
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['fileCreateMask'] = '0660';
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['UTF8filesystem'] = 'en_US.UTF-8';
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['systemLocale'] = 'en_US.UTF-8';
+
+// Set trustedHostsPattern from DOMAIN if available
+$domain = $_ENV['DOMAIN'] ?? getenv('DOMAIN') ?: '';
+if (!$domain || $domain === '_') {
+    // No domain or IP-based installation: allow all hosts
+    $GLOBALS['TYPO3_CONF_VARS']['SYS']['trustedHostsPattern'] = '.*';
+} else {
+    // Domain-based installation: restrict to specific domain
+    $GLOBALS['TYPO3_CONF_VARS']['SYS']['trustedHostsPattern'] = preg_quote($domain, '/');
+}
+
+/**
+ * Context-specific configuration
+ */
+if ($context->isProduction() && $context->__toString() === 'Production') {
+    $GLOBALS['TYPO3_CONF_VARS']['BE']['debug'] = '';
+    $GLOBALS['TYPO3_CONF_VARS']['FE']['debug'] = '';
+    $GLOBALS['TYPO3_CONF_VARS']['SYS']['devIPmask'] = '';
+    $GLOBALS['TYPO3_CONF_VARS']['SYS']['displayErrors'] = '0';
+    $GLOBALS['TYPO3_CONF_VARS']['SYS']['exceptionalErrors'] = '4096';
+    $GLOBALS['TYPO3_CONF_VARS']['SYS']['sitename'] = '[Production] TYPO3 CMS';
+} elseif ($context->isDevelopment()) {
+    $GLOBALS['TYPO3_CONF_VARS']['BE']['debug'] = '1';
+    $GLOBALS['TYPO3_CONF_VARS']['FE']['debug'] = '1';
+    $GLOBALS['TYPO3_CONF_VARS']['SYS']['devIPmask'] = '*';
+    $GLOBALS['TYPO3_CONF_VARS']['SYS']['displayErrors'] = '1';
+    $GLOBALS['TYPO3_CONF_VARS']['SYS']['exceptionalErrors'] = '12290';
+    $GLOBALS['TYPO3_CONF_VARS']['SYS']['sitename'] = '[Dev] TYPO3 CMS';
+    // trustedHostsPattern is set above based on $domain from .env.development
+} elseif ($context->isProduction() && $context->__toString() === 'Production/Staging') {
+    $GLOBALS['TYPO3_CONF_VARS']['BE']['debug'] = '';
+    $GLOBALS['TYPO3_CONF_VARS']['FE']['debug'] = '';
+    $GLOBALS['TYPO3_CONF_VARS']['SYS']['devIPmask'] = '';
+    $GLOBALS['TYPO3_CONF_VARS']['SYS']['displayErrors'] = '0';
+    $GLOBALS['TYPO3_CONF_VARS']['SYS']['exceptionalErrors'] = '4096';
+    $GLOBALS['TYPO3_CONF_VARS']['SYS']['sitename'] = '[Staging] TYPO3 CMS';
+}
+
+/**
+ * Database configuration
+ */
+$GLOBALS['TYPO3_CONF_VARS']['DB']['Connections']['Default']['driver'] = 'mysqli';
+$GLOBALS['TYPO3_CONF_VARS']['DB']['Connections']['Default']['dbname'] = $_ENV['DB_DB'] ?? getenv('DB_DB') ?: '';
+$GLOBALS['TYPO3_CONF_VARS']['DB']['Connections']['Default']['user'] = $_ENV['DB_USER'] ?? getenv('DB_USER') ?: '';
+$GLOBALS['TYPO3_CONF_VARS']['DB']['Connections']['Default']['password'] = $_ENV['DB_PASS'] ?? getenv('DB_PASS') ?: '';
+$GLOBALS['TYPO3_CONF_VARS']['DB']['Connections']['Default']['host'] = $_ENV['DB_HOST'] ?? getenv('DB_HOST') ?: 'localhost';
+$GLOBALS['TYPO3_CONF_VARS']['DB']['Connections']['Default']['port'] = 3306;
+$GLOBALS['TYPO3_CONF_VARS']['DB']['Connections']['Default']['charset'] = 'utf8mb4';
+// Use modern defaultTableOptions for TYPO3 v13+ (backward compatible with v12)
+$GLOBALS['TYPO3_CONF_VARS']['DB']['Connections']['Default']['defaultTableOptions'] = [
+    'charset' => 'utf8mb4',
+    'collation' => 'utf8mb4_unicode_ci',
+];
+
+/**
+ * Mail configuration
+ * Only set if values are provided
+ */
+$smtpServer = $_ENV['SMTP_SERVER'] ?? getenv('SMTP_SERVER') ?: '';
+if ($smtpServer) {
+    $GLOBALS['TYPO3_CONF_VARS']['MAIL']['transport'] = 'smtp';
+    $GLOBALS['TYPO3_CONF_VARS']['MAIL']['transport_smtp_server'] = $smtpServer;
+    $GLOBALS['TYPO3_CONF_VARS']['MAIL']['transport_smtp_username'] = $_ENV['SMTP_USER'] ?? getenv('SMTP_USER') ?: '';
+    $GLOBALS['TYPO3_CONF_VARS']['MAIL']['transport_smtp_password'] = $_ENV['SMTP_PASSWORD'] ?? getenv('SMTP_PASSWORD') ?: '';
+    $GLOBALS['TYPO3_CONF_VARS']['MAIL']['transport_smtp_encrypt'] = (bool)($_ENV['SMTP_TRANSPORT_ENCRYPT'] ?? getenv('SMTP_TRANSPORT_ENCRYPT') ?: '');
+}
+
+// Default mail from address
+$defaultMailFrom = $_ENV['DEFAULT_MAIL_FROM_ADDRESS'] ?? getenv('DEFAULT_MAIL_FROM_ADDRESS') ?: '';
+if ($defaultMailFrom) {
+    $GLOBALS['TYPO3_CONF_VARS']['MAIL']['defaultMailFromAddress'] = $defaultMailFrom;
+    $GLOBALS['TYPO3_CONF_VARS']['MAIL']['defaultMailFromName'] = $_ENV['DEFAULT_MAIL_FROM_NAME'] ?? getenv('DEFAULT_MAIL_FROM_NAME') ?: 'TYPO3 CMS';
+}
+
+// Reply-To address
+$replyToAddress = $_ENV['DEFAULT_MAIL_REPLY_TO_ADDRESS'] ?? getenv('DEFAULT_MAIL_REPLY_TO_ADDRESS') ?: '';
+if ($replyToAddress) {
+    $GLOBALS['TYPO3_CONF_VARS']['MAIL']['defaultMailReplyToAddress'] = $replyToAddress;
+    $GLOBALS['TYPO3_CONF_VARS']['MAIL']['defaultMailReplyToName'] = $_ENV['DEFAULT_MAIL_REPLY_TO_NAME'] ?? getenv('DEFAULT_MAIL_REPLY_TO_NAME') ?: '';
+}
+
+/**
+ * DDEV support
+ */
+if (getenv('IS_DDEV_PROJECT') === 'true') {
+    $GLOBALS['TYPO3_CONF_VARS'] = array_replace_recursive(
+        $GLOBALS['TYPO3_CONF_VARS'],
+        [
+            'DB' => [
+                'Connections' => [
+                    'Default' => [
+                        'dbname' => 'db',
+                        'driver' => 'mysqli',
+                        'host' => 'db',
+                        'password' => 'db',
+                        'port' => '3306',
+                        'user' => 'db',
+                        'charset' => 'utf8mb4',
+                        'tableoptions' => [
+                            'charset' => 'utf8mb4',
+                            'collate' => 'utf8mb4_unicode_ci',
+                        ],
+                    ],
+                ],
+            ],
+            'GFX' => [
+                'processor' => 'ImageMagick',
+                'processor_path' => '/usr/bin/',
+                'processor_path_lzw' => '/usr/bin/',
+            ],
+            'MAIL' => [
+                'transport' => 'smtp',
+                'transport_smtp_encrypt' => false,
+                'transport_smtp_server' => 'localhost:1025',
+            ],
+            'SYS' => [
+                'trustedHostsPattern' => '.*.*',
+                'devIPmask' => '*',
+                'displayErrors' => 1,
+                'systemLocale' => 'C.UTF-8'
+            ],
+        ]
+    );
+}
+
+/**
+ * TYPO3 Install Tool Password
+ * Required for TYPO3 to function properly
+ */
+$installToolPassword = $_ENV['TYPO3_INSTALL_TOOL'] ?? getenv('TYPO3_INSTALL_TOOL') ?: '';
+if (!$installToolPassword) {
+    // Only show error in Install Tool context to avoid breaking frontend
+    if (defined('TYPO3_enterInstallScript') || PHP_SAPI === 'cli') {
+        error_log('TYPO3 Install Tool password not configured in .env file');
+    }
+}
+EOPHP
+
+  # Set ownership of settings
+  chown www-data:www-data ${pathAdditionalSettings}
+  chmod 660 ${pathAdditionalSettings}
+
+  # Run TYPO3 automated setup
+  echo "INFO Running automated TYPO3 setup"
+
+  # Try automated setup with typo3-console (works for both v12 and v13)
+  if [[ "${typo3Version}" == "^13"* ]]; then
+    echo "INFO Using TYPO3 v13 with typo3-console"
+    typo3CliCommand="typo3"
+  else
+    echo "INFO Using TYPO3 v12 with typo3-console"
+    typo3CliCommand="typo3cms"
+  fi
+
+  # Show command for debugging
+  echo "CMD: php ${composerDirectory}vendor/bin/${typo3CliCommand} install:setup --no-interaction --database-user-name=\"${databaseUser}\" --database-user-password=\"${databasePassword}\" --database-host-name=\"localhost\" --database-port=3306 --database-name=\"${databaseName}\" --use-existing-database --admin-user-name=\"typo3-admin\" --admin-password=\"${systemPass}\" --site-setup-type=site"
+
+  # Run directly as root (same as old script)
+  # Files are owned by www-data but root executes the command
+  php ${composerDirectory}vendor/bin/${typo3CliCommand} install:setup \
+    --no-interaction \
+    --database-user-name="${databaseUser}" \
+    --database-user-password="${databasePassword}" \
+    --database-host-name="localhost" \
+    --database-port=3306 \
+    --database-name="${databaseName}" \
+    --use-existing-database \
+    --admin-user-name="typo3-admin" \
+    --admin-password="${systemPass}" \
+    --site-setup-type=site || {
+      echo "WARN Automated setup failed"
+      echo "INFO You can run setup manually with the CMD above"
+    }
+
+  # Remove FIRST_INSTALL after successful setup
+  if [ -f "${typo3PublicDirectory}/FIRST_INSTALL" ]; then
+    rm "${typo3PublicDirectory}/FIRST_INSTALL"
+    echo "INFO FIRST_INSTALL removed after successful setup"
+  fi
+
+  echo ""
+  echo "==============================================================="
+  echo "TYPO3 Installation Completed!"
+  echo "==============================================================="
+  echo "Admin User: typo3-admin"
+  echo "Admin Password: ${systemPass}"
+  echo "Install Tool Password: ${systemPass}"
+  echo ""
+  echo "Next steps:"
+  echo "1. Access TYPO3 Backend: http://${serverDomain}/typo3"
+  echo "2. Configure SSL certificate (recommended)"
+  echo "3. Set up SMTP for email sending (edit .env file)"
+  echo "==============================================================="
+}

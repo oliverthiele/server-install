@@ -1,0 +1,30 @@
+# TYPO3 URL Rewrite Rules
+
+# Note: TYPO3 v13 allows custom backend routes via config.yaml (backend.entryPoint)
+# This configuration assumes the default /typo3 route. Adjust if you use a custom backend path.
+
+# TYPO3 v11+ Backend URLs (default /typo3 route)
+location = /typo3 {
+    rewrite ^ /typo3/;
+}
+
+# Allow access to all public resources in TYPO3 backend
+location ~ ^/typo3/(.*/)?Resources/Public/ {
+    allow all;
+    break;
+}
+
+location /typo3/ {
+    # Uncomment for basic auth protection of backend
+    # include snippets/BasicAuth.nginx;
+    try_files $uri /typo3/index.php$is_args$args;
+}
+
+# Install tool redirect
+rewrite ^/typo3/install/$ /typo3/install.php permanent;
+
+# versionNumberInFilename - aligned with TYPO3 core
+# Removes the timestamp from versioned files
+# Pattern: filename.1234567890.ext -> filename.ext
+# Supports: CSS, JS (including .mjs modules), images (including AVIF), fonts, JSON
+rewrite "^(.*)\.(\d{10})\.(css|js|mjs|png|jpg|jpeg|gif|svg|avif|webp|woff|woff2|ttf|eot|otf|json)$" $1.$3 last;

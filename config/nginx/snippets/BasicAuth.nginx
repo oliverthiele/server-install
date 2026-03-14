@@ -1,0 +1,28 @@
+# Basic Authentication with IP whitelist
+# Create password file with: htpasswd -c /var/www/typo3/.htpasswd username
+#
+# With "satisfy any", access is granted if EITHER:
+# - The IP is in the whitelist (allow), OR
+# - Valid credentials are provided (auth_basic)
+
+auth_basic "Restricted Access";
+auth_basic_user_file /var/www/typo3/.htpasswd;
+
+# Allow access without password from trusted networks
+satisfy any;
+
+# Localhost and loopback
+allow 127.0.0.0/8;
+allow ::1;
+
+# Private networks (adjust based on your setup)
+allow 10.0.0.0/8;          # Class A private network
+allow 172.16.0.0/12;       # Class B private network (172.16.0.0 - 172.31.255.255)
+allow 192.168.0.0/16;      # Class C private network
+
+# Specific subnets (examples - adjust to your needs)
+# allow 172.18.0.0/16;     # Docker default bridge network
+# allow 172.23.0.0/16;     # Custom Docker network
+
+# Deny all other IPs (requires password)
+deny all;

@@ -1,0 +1,8 @@
+# HTTP Method Filtering
+# Only allow specific HTTP methods, block all others
+# GET, POST, HEAD are typically needed for TYPO3
+# PUT, DELETE, PATCH etc. are blocked unless specifically needed
+
+if ($request_method !~ ^(GET|POST|HEAD)$ ) {
+    return 405;
+}

@@ -1,0 +1,26 @@
+# Bot and AI Crawler Filter
+# Returns 444 (connection closed) for known bad bots and aggressive AI crawlers
+# Place this in your server block before other location directives
+
+# Block bad bots and scrapers
+if ($http_user_agent ~* (AhrefsBot|SemrushBot|DotBot|MJ12bot|Sogou|BLEXBot|Baiduspider)) {
+    return 444;
+}
+
+# Block aggressive AI crawlers that ignore robots.txt or cause high load
+# Update this list based on your server logs and requirements
+if ($http_user_agent ~* (GPTBot|ChatGPT-User|CCBot|anthropic-ai|Claude-Web|cohere-ai|PerplexityBot|Omgilibot|Bytespider|FacebookBot|Applebot-Extended)) {
+    return 444;
+}
+
+# Block if no User-Agent is provided (common for scrapers)
+if ($http_user_agent = "") {
+    return 444;
+}
+
+# Optional: Rate limiting for search engines on expensive endpoints
+# Uncomment and adjust if needed
+# limit_req_zone $binary_remote_addr zone=search:10m rate=10r/s;
+# location ~ ^/(search|suche) {
+#     limit_req zone=search burst=20 nodelay;
+# }
