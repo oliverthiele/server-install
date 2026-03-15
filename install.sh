@@ -144,6 +144,7 @@ fi
 if ! isStepComplete "typo3_install"; then
   installTypo3
   activateTypo3
+  setupScheduler
   markStepComplete "typo3_install"
 fi
 

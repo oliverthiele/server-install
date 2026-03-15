@@ -82,6 +82,24 @@ installTypo3() {
   if test -f "${composerDirectory}vendor/bin/typo3"; then
     echo "alias typo3='${composerDirectory}vendor/bin/typo3'" >>/var/www/.zshrc
   fi
+
+  # Auto-set TYPO3_CONTEXT from active nginx configuration.
+  # Nginx is the single source of truth for the context — switching from
+  # Development to Production in typo3.nginx and reloading nginx automatically
+  # applies to the next CLI session without a manual 'export TYPO3_CONTEXT=...'.
+  for zshrcFile in /var/www/.zshrc /root/.zshrc; do
+    cat >>"${zshrcFile}" <<'EOZSH'
+
+# Auto-set TYPO3_CONTEXT from active nginx site configuration
+if [ -f "/etc/nginx/sites-available/typo3.nginx" ]; then
+    _typo3_context=$(grep -E '^\s*fastcgi_param TYPO3_CONTEXT' /etc/nginx/sites-available/typo3.nginx | awk '{print $3}' | tr -d ';' | head -1)
+    if [ -n "${_typo3_context}" ]; then
+        export TYPO3_CONTEXT="${_typo3_context}"
+    fi
+    unset _typo3_context
+fi
+EOZSH
+  done
 }
 
 activateTypo3() {
@@ -367,41 +385,45 @@ EOPHP
   chmod 660 ${pathAdditionalSettings}
 
   # Run TYPO3 automated setup
+  # Uses the native TYPO3 CLI 'setup' command (available since TYPO3 v12.4).
+  # Does not require helhum/typo3-console — both v12 and v13 are covered.
   echo "INFO Running automated TYPO3 setup"
+  echo "CMD: sudo -u www-data php ${composerDirectory}vendor/bin/typo3 setup --no-interaction ..."
 
-  # Try automated setup with typo3-console (works for both v12 and v13)
-  if [[ "${typo3Version}" == "^13"* ]]; then
-    echo "INFO Using TYPO3 v13 with typo3-console"
-    typo3CliCommand="typo3"
-  else
-    echo "INFO Using TYPO3 v12 with typo3-console"
-    typo3CliCommand="typo3cms"
-  fi
-
-  # Show command for debugging
-  echo "CMD: php ${composerDirectory}vendor/bin/${typo3CliCommand} install:setup --no-interaction --database-user-name=\"${databaseUser}\" --database-user-password=\"${databasePassword}\" --database-host-name=\"localhost\" --database-port=3306 --database-name=\"${databaseName}\" --use-existing-database --admin-user-name=\"typo3-admin\" --admin-password=\"${systemPass}\" --site-setup-type=site"
-
-  # Run directly as root (same as old script)
-  # Files are owned by www-data but root executes the command
-  php ${composerDirectory}vendor/bin/${typo3CliCommand} install:setup \
+  setup_success=false
+  if sudo -u www-data php "${composerDirectory}vendor/bin/typo3" setup \
     --no-interaction \
-    --database-user-name="${databaseUser}" \
-    --database-user-password="${databasePassword}" \
-    --database-host-name="localhost" \
-    --database-port=3306 \
-    --database-name="${databaseName}" \
+    --driver=mysqli \
+    --host=localhost \
+    --port=3306 \
+    --dbname="${databaseName}" \
+    --username="${databaseUser}" \
+    --password="${databasePassword}" \
     --use-existing-database \
     --admin-user-name="typo3-admin" \
-    --admin-password="${systemPass}" \
-    --site-setup-type=site || {
-      echo "WARN Automated setup failed"
-      echo "INFO You can run setup manually with the CMD above"
-    }
+    --admin-user-password="${systemPass}" \
+    --project-name="TYPO3 CMS" \
+    --server-type=other; then
+    setup_success=true
+  fi
 
-  # Remove FIRST_INSTALL after successful setup
-  if [ -f "${typo3PublicDirectory}/FIRST_INSTALL" ]; then
-    rm "${typo3PublicDirectory}/FIRST_INSTALL"
-    echo "INFO FIRST_INSTALL removed after successful setup"
+  if $setup_success; then
+    echo "INFO TYPO3 setup completed successfully"
+    if [ -f "${typo3PublicDirectory}/FIRST_INSTALL" ]; then
+      rm "${typo3PublicDirectory}/FIRST_INSTALL"
+      echo "INFO FIRST_INSTALL removed"
+    fi
+    echo "INFO Installing German language pack"
+    sudo -u www-data php "${composerDirectory}vendor/bin/typo3" language:update de \
+      || echo "WARN Language pack failed – run manually: sudo -u www-data php vendor/bin/typo3 language:update de"
+  else
+    echo ""
+    echo "WARN Automated TYPO3 setup failed."
+    echo "     FIRST_INSTALL kept — complete setup via the web wizard:"
+    echo "     http://${serverDomain}/typo3/install.php"
+    echo ""
+    echo "     Or retry manually as www-data:"
+    echo "     sudo -u www-data php ${composerDirectory}vendor/bin/typo3 setup"
   fi
 
   echo ""
@@ -417,4 +439,18 @@ EOPHP
   echo "2. Configure SSL certificate (recommended)"
   echo "3. Set up SMTP for email sending (edit .env file)"
   echo "==============================================================="
+}
+
+setupScheduler() {
+  echo "INFO Setting up TYPO3 Scheduler cronjob (every 5 minutes)"
+
+  # TYPO3_CONTEXT is read at runtime from the nginx config — the same
+  # source of truth used by the web server and the CLI shell profile.
+  cat > /etc/cron.d/typo3-scheduler <<'EOL'
+# TYPO3 Scheduler – runs every 5 minutes.
+# TYPO3_CONTEXT is derived from the active nginx configuration at runtime.
+*/5 * * * * www-data TYPO3_CONTEXT=$(grep -E '^\s*fastcgi_param TYPO3_CONTEXT' /etc/nginx/sites-available/typo3.nginx 2>/dev/null | awk '{print $3}' | tr -d ';' | head -1) /usr/bin/php /var/www/typo3/vendor/bin/typo3 scheduler:run 2>&1 | /usr/bin/logger -t typo3-scheduler
+EOL
+  chmod 644 /etc/cron.d/typo3-scheduler
+  echo "INFO TYPO3 Scheduler cronjob installed (/etc/cron.d/typo3-scheduler)"
 }
