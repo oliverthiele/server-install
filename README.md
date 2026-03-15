@@ -5,6 +5,7 @@
 [![Ubuntu](https://img.shields.io/badge/Ubuntu-22.04_|_24.04-E95420.svg)](https://ubuntu.com/)
 [![Nginx](https://img.shields.io/badge/Nginx-Brotli-009639.svg)](https://nginx.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![shellcheck](https://github.com/oliverthiele/server-install/actions/workflows/shellcheck.yml/badge.svg)](https://github.com/oliverthiele/server-install/actions/workflows/shellcheck.yml)
 
 Automated bash installer for TYPO3 on Ubuntu Server. Sets up a complete production stack — Nginx with Brotli, PHP-FPM,
 MariaDB, Redis, SSL hardening — and installs TYPO3 v12 or v13 via Composer in one interactive run. Interrupted
