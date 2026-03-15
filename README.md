@@ -29,12 +29,10 @@ installations can be resumed at any step.
 | **Performance**     | TCP BBR, Brotli + Gzip, browser caching, OPcache tuning, PHP-FPM slow log           |
 | **Scheduler**       | TYPO3 Scheduler cronjob pre-configured (every 5 min, `/etc/cron.d/typo3-scheduler`) |
 | **CLI context**     | `TYPO3_CONTEXT` auto-set from nginx config on every shell login (root + www-data)   |
-| **Language**        | German language pack installed automatically after setup                            |
 | **Resume support**  | Interrupted installations resume at the last completed step                         |
 | **Resource tuning** | `bin/tune-server.sh` — PHP-FPM + MariaDB tuned to server RAM/CPU                    |
 | **SSH hardening**   | `bin/harden-ssh.sh` — interactive port change, key-only auth, Hetzner-aware         |
 | **Slow log**        | `bin/toggle-php-slowlog.sh` — enable/disable PHP-FPM slow log (threshold 2s)        |
-| **Monitoring**      | Optional Monit with web interface                                                   |
 
 ## Requirements
 
@@ -155,7 +153,7 @@ server-install/
 
 - **Composer** — verified checksum install
 - **Node.js v22** — via nvm, installed for `www-data`
-- **GraphicsMagick** — image processing
+- **ImageMagick** — image processing with AVIF support (via libheif)
 - **Certbot** — Let's Encrypt SSL certificates
 - **Zsh** — with oh-my-zsh and agnoster theme
 - **Git, tig, jq** — development utilities
@@ -230,6 +228,8 @@ Settings locked in `additional.php`:
 | `SYS/folderCreateMask`    | `2770`                               | Setgid bit ensures group inheritance; no world access |
 | `SYS/trustedHostsPattern` | derived from `DOMAIN` in `.env`      | Managed via environment variable                      |
 | `DB/*`                    | from `.env`                          | Managed via environment variable                      |
+| `GFX/processor`           | `ImageMagick`                        | Required for AVIF support                             |
+| `GFX/processor_path`      | `/usr/bin/`                          | Standard path for ImageMagick on Ubuntu               |
 | Redis cache backends      | `pages` (DB 0), `pagesection` (DB 1) | Requires `REDIS_PASS` from `.env`                     |
 
 ### Environment Configuration
@@ -412,10 +412,9 @@ Written to `/etc/sysctl.d/99-typo3.conf` (idempotent):
 Config snippet at `/etc/nginx/snippets/ssl-hardening.nginx`:
 
 - TLS 1.2 and 1.3 only
-- Strong ECDHE cipher suites
-- DH parameters (2048-bit)
+- Strong ECDHE cipher suites (x25519 preferred)
 - OCSP stapling
-- HSTS ready (commented — enable after SSL is confirmed working)
+- HSTS ready (commented — enable deliberately, see inline comment)
 
 ## Post-Installation
 
@@ -531,7 +530,7 @@ Log location: `/var/log/phpX.Y-fpm-slow.log`
 
 ```bash
 nginx -t                          # Nginx config test
-systemctl status php8.3-fpm       # PHP-FPM status
+systemctl status php8.4-fpm       # PHP-FPM status (adjust version)
 redis-cli ping                    # Expected: PONG (requires -a <password> after install)
 php -m | grep redis               # PHP Redis extension loaded?
 bin/tune-server.sh --dry-run      # Review current tuning recommendations

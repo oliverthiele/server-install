@@ -26,15 +26,15 @@ config/
 
 ## Key Global Variables
 
-| Variable          | Set in        | Description                                              |
-|-------------------|---------------|----------------------------------------------------------|
-| `ubuntuVersion`   | utils.sh      | e.g. `24.04`                                             |
-| `phpVersion`      | utils.sh      | e.g. `8.3` or `8.4`                                     |
-| `requiresPhpPpa`  | utils.sh      | `true` if ondrej/php PPA is needed (PHP 8.4 on 24.04)   |
-| `pathToPhpIni`    | utils.sh      | `/etc/php/${phpVersion}/fpm/php.ini`                     |
-| `typo3Version`    | config.sh     | e.g. `^13.4`                                             |
-| `serverDomain`    | config.sh     | Domain or `_` for IP-based setup                        |
-| `adminEmail`      | config.sh     | Used for Certbot, Monit                                  |
+| Variable         | Set in    | Description                                           |
+|------------------|-----------|-------------------------------------------------------|
+| `ubuntuVersion`  | utils.sh  | e.g. `24.04`                                          |
+| `phpVersion`     | utils.sh  | e.g. `8.3` or `8.4`                                   |
+| `requiresPhpPpa` | utils.sh  | `true` if ondrej/php PPA is needed (PHP 8.4 on 24.04) |
+| `pathToPhpIni`   | utils.sh  | `/etc/php/${phpVersion}/fpm/php.ini`                  |
+| `typo3Version`   | config.sh | e.g. `^13.4`                                          |
+| `serverDomain`   | config.sh | Domain or `_` for IP-based setup                      |
+| `adminEmail`     | config.sh | Used for Certbot, TYPO3 admin BE user email           |
 
 All variables are exported for use across sourced scripts.
 
@@ -43,9 +43,11 @@ All variables are exported for use across sourced scripts.
 Ubuntu 24.04 ships PHP 8.3 by default. PHP 8.4 requires the **ondrej/php PPA** (`ppa:ondrej/php`).
 
 When PHP 8.4 is selected:
+
 - `requiresPhpPpa=true` is set and persisted in the state config
 - `addPhpPpa()` in `system.sh` adds the PPA before package installation
-- After `apt install`, `update-alternatives --set php /usr/bin/php8.4` pins the CLI version (prevents the PPA's PHP 8.5 from becoming the default)
+- After `apt install`, `update-alternatives --set php /usr/bin/php8.4` pins the CLI version (prevents the PPA's PHP 8.5
+  from becoming the default)
 - `installPhpRedis()` uses `apt install php8.4-redis` (ondrej/php provides current packages, no pecl needed)
 
 For PHP 8.3 on Ubuntu 24.04 without PPA: php-redis is installed via `pecl` due to outdated Ubuntu packages.
@@ -53,6 +55,7 @@ For PHP 8.3 on Ubuntu 24.04 without PPA: php-redis is installed via `pecl` due t
 ## State / Resume
 
 Installation progress is tracked in:
+
 - `/root/.typo3-install-state` – completed steps with timestamps
 - `/root/.typo3-install-config` – all configuration variables including `REQUIRES_PHP_PPA`
 
@@ -71,6 +74,7 @@ The recycler block is nested inside the fileadmin location.
 ## Resource Tuning
 
 `bin/tune-server.sh` reads RAM and CPU cores, calculates optimal values, and writes:
+
 - PHP-FPM: modifies `/etc/php/${phpVersion}/fpm/pool.d/www.conf` (backup created before each run)
 - MariaDB: clean drop-in at `/etc/mysql/mariadb.conf.d/99-tuning.conf` (safe to overwrite)
 
