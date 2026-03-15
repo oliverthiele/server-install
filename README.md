@@ -26,7 +26,7 @@ installations can be resumed at any step.
 | **Database**        | MariaDB with automated hardening                                                    |
 | **Cache**           | Redis with `requirepass` authentication, page and section cache pre-configured      |
 | **Security**        | SSH hardening, fileadmin CSP, SSL/TLS, HTTP method filtering, kernel hardening      |
-| **Performance**     | TCP BBR, Brotli + Gzip, browser caching, OPcache tuning, PHP-FPM umask + slow log   |
+| **Performance**     | TCP BBR, Brotli + Gzip, browser caching, OPcache tuning, PHP-FPM slow log           |
 | **Scheduler**       | TYPO3 Scheduler cronjob pre-configured (every 5 min, `/etc/cron.d/typo3-scheduler`) |
 | **CLI context**     | `TYPO3_CONTEXT` auto-set from nginx config on every shell login (root + www-data)   |
 | **Language**        | German language pack installed automatically after setup                            |
@@ -224,13 +224,13 @@ System settings are configured in `config/system/additional.php`. This file is l
 
 Settings locked in `additional.php`:
 
-| Setting                   | Value                                | Reason                                                           |
-|---------------------------|--------------------------------------|------------------------------------------------------------------|
-| `SYS/fileCreateMask`      | `0660`                               | Matches PHP-FPM `process.umask = 0007`; files must not be world-readable |
-| `SYS/folderCreateMask`    | `2770`                               | Setgid bit ensures group inheritance; no world access            |
-| `SYS/trustedHostsPattern` | derived from `DOMAIN` in `.env`      | Managed via environment variable                                 |
-| `DB/*`                    | from `.env`                          | Managed via environment variable                                 |
-| Redis cache backends      | `pages` (DB 0), `pagesection` (DB 1) | Requires `REDIS_PASS` from `.env`                                |
+| Setting                   | Value                                | Reason                                                |
+|---------------------------|--------------------------------------|-------------------------------------------------------|
+| `SYS/fileCreateMask`      | `0660`                               | Files must not be world-readable                      |
+| `SYS/folderCreateMask`    | `2770`                               | Setgid bit ensures group inheritance; no world access |
+| `SYS/trustedHostsPattern` | derived from `DOMAIN` in `.env`      | Managed via environment variable                      |
+| `DB/*`                    | from `.env`                          | Managed via environment variable                      |
+| Redis cache backends      | `pages` (DB 0), `pagesection` (DB 1) | Requires `REDIS_PASS` from `.env`                     |
 
 ### Environment Configuration
 
