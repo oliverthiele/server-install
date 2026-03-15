@@ -450,12 +450,15 @@ EOPHP
       echo -e "${COLOR_GREEN}INFO FIRST_INSTALL removed${COLOR_NC}"
     fi
     # Set admin email and real name in the database
+    # Escape single quotes for MySQL string literals (' → '') to prevent SQL injection
+    local safeEmail="${adminEmail//\'/\'\'}"
     local realNameSql=""
     if [[ -n "${adminRealName:-}" ]]; then
-      realNameSql=", realName = '${adminRealName}'"
+      local safeRealName="${adminRealName//\'/\'\'}"
+      realNameSql=", realName = '${safeRealName}'"
     fi
     mysql -u"${databaseUser}" -p"${databasePassword}" "${databaseName}" \
-      -e "UPDATE be_users SET email = '${adminEmail}'${realNameSql} WHERE username = 'typo3-admin';" \
+      -e "UPDATE be_users SET email = '${safeEmail}'${realNameSql} WHERE username = 'typo3-admin';" \
       || warn "Could not update BE user — set email/name manually in TYPO3 backend"
   else
     echo ""
@@ -467,19 +470,6 @@ EOPHP
     echo    "     sudo -u www-data php ${composerDirectory}vendor/bin/typo3 setup"
   fi
 
-  echo ""
-  echo "==============================================================="
-  echo "TYPO3 Installation Completed!"
-  echo "==============================================================="
-  echo "Admin User: typo3-admin"
-  echo "Admin Password: ${systemPass}"
-  echo "Install Tool Password: ${systemPass}"
-  echo ""
-  echo "Next steps:"
-  echo "1. Access TYPO3 Backend: http://${serverDomain}/typo3"
-  echo "2. Configure SSL certificate (recommended)"
-  echo "3. Set up SMTP for email sending (edit .env file)"
-  echo "==============================================================="
 }
 
 setupScheduler() {
