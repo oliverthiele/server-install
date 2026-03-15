@@ -14,10 +14,14 @@ createDatabase() {
   encryptionKey="$(openssl rand -hex 48)"
 
   # Quoted identifiers prevent issues if variable values ever change
-  mysql -e "CREATE DATABASE \`${databaseName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-  mysql -e "CREATE USER '${databaseUser}'@'localhost' IDENTIFIED BY '${databasePassword}';"
-  mysql -e "GRANT ALL PRIVILEGES ON \`${databaseName}\`.* TO '${databaseUser}'@'localhost';"
-  mysql -e "FLUSH PRIVILEGES;"
+  mysql -e "CREATE DATABASE \`${databaseName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" \
+    || die "Failed to create database '${databaseName}' — check MariaDB logs"
+  mysql -e "CREATE USER '${databaseUser}'@'localhost' IDENTIFIED BY '${databasePassword}';" \
+    || die "Failed to create database user '${databaseUser}'"
+  mysql -e "GRANT ALL PRIVILEGES ON \`${databaseName}\`.* TO '${databaseUser}'@'localhost';" \
+    || die "Failed to grant privileges to '${databaseUser}'"
+  mysql -e "FLUSH PRIVILEGES;" \
+    || die "Failed to flush privileges"
 
   export databaseUser databasePassword databaseName databaseHost encryptionKey
 }

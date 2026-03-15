@@ -114,7 +114,7 @@ getNvmVersion() {
   if [[ "${version}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     echo "${version}"
   else
-    echo "WARN Could not fetch latest nvm version from GitHub, using fallback ${fallback_version}" >&2
+    warn "Could not fetch latest nvm version from GitHub, using fallback ${fallback_version}"
     echo "${fallback_version}"
   fi
 }
@@ -174,7 +174,7 @@ configureZshPlugins() {
   local zshrcPath="/root/.zshrc"
 
   if [ ! -f "${zshrcPath}" ]; then
-    echo "WARN ${zshrcPath} not found – skipping plugin configuration"
+    warn "${zshrcPath} not found – skipping plugin configuration"
     return 0
   fi
 

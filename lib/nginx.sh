@@ -138,20 +138,9 @@ configureNginx() {
   echo "INFO Configure Nginx for TYPO3"
 
   # Ensure required variables are set
-  if [ -z "${serverDomain}" ]; then
-    echo "ERROR: serverDomain is not set. Cannot configure nginx."
-    exit 1
-  fi
-
-  if [ -z "${typo3PublicDirectory}" ]; then
-    echo "ERROR: typo3PublicDirectory is not set. Cannot configure nginx."
-    exit 1
-  fi
-
-  if [ -z "${phpVersion}" ]; then
-    echo "ERROR: phpVersion is not set. Cannot configure nginx."
-    exit 1
-  fi
+  [ -z "${serverDomain}" ]         && die "serverDomain is not set — cannot configure nginx"
+  [ -z "${typo3PublicDirectory}" ] && die "typo3PublicDirectory is not set — cannot configure nginx"
+  [ -z "${phpVersion}" ]           && die "phpVersion is not set — cannot configure nginx"
 
   # Basic security settings
   sed -i 's/# server_tokens off;/server_tokens off;/' /etc/nginx/nginx.conf

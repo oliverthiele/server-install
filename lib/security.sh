@@ -14,7 +14,7 @@ secureMariaDB() {
       export mysqlRootPassword
       return 0
     else
-      echo "WARN Found .my.cnf but authentication failed, re-securing..."
+      warn "Found .my.cnf but authentication failed, re-securing..."
       rm -f /root/.my.cnf
     fi
   fi
@@ -58,9 +58,9 @@ hardenSSH() {
 
   # Check if root has SSH keys configured
   if [ ! -f /root/.ssh/authorized_keys ] || [ ! -s /root/.ssh/authorized_keys ]; then
-    echo "WARN No SSH keys found in /root/.ssh/authorized_keys"
-    echo "WARN Skipping password-auth disable to prevent lockout"
-    echo "WARN Add your SSH key, then run: bin/harden-ssh.sh"
+    warn "No SSH keys found in /root/.ssh/authorized_keys"
+    warn "Skipping password-auth disable to prevent lockout"
+    warn "Add your SSH key, then run: bin/harden-ssh.sh"
     return 0
   fi
 
@@ -91,7 +91,7 @@ hardenSSH() {
   # Test and reload
   sshd -t
   systemctl restart ssh 2>/dev/null || systemctl restart sshd 2>/dev/null || \
-    echo "WARN Could not restart SSH automatically. Please restart manually."
+    warn "Could not restart SSH automatically. Please restart manually."
 
   echo "INFO Basic SSH hardening applied (port unchanged)"
   echo "INFO For port change and full interactive hardening: bin/harden-ssh.sh"
@@ -155,7 +155,7 @@ net.ipv4.tcp_keepalive_intvl=15
 EOL
 
   # Apply all sysctl drop-in files (continue on error for optional parameters)
-  sysctl --system 2>&1 | grep -v "^$" || echo "WARN Some kernel parameters could not be applied (this is usually harmless)"
+  sysctl --system 2>&1 | grep -v "^$" || warn "Some kernel parameters could not be applied (this is usually harmless)"
 
   echo "INFO Kernel optimizations applied (config: /etc/sysctl.d/99-typo3.conf)"
 }
@@ -173,11 +173,6 @@ setupLogrotate() {
     delaycompress
     notifempty
     create 0660 www-data www-data
-    sharedscripts
-    postrotate
-        # Clear TYPO3 cache after log rotation
-        su www-data -s /bin/bash -c "cd /var/www/typo3 && vendor/bin/typo3 cache:flush" > /dev/null 2>&1 || true
-    endscript
 }
 
 /var/www/typo3/public/typo3temp/var/log/*.log {

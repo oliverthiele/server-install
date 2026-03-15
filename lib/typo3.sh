@@ -7,7 +7,7 @@ installTypo3() {
 
   chown www-data:www-data /var/www/ -R
 
-  cd ${wwwRoot} || exit
+  cd "${wwwRoot}" || die "Cannot cd to ${wwwRoot}"
 
   # Check if TYPO3 directory already exists
   if [ -d "/var/www/typo3" ] && [ -f "/var/www/typo3/composer.json" ]; then
@@ -16,14 +16,15 @@ installTypo3() {
   else
     # Remove directory if it exists but is incomplete
     if [ -d "/var/www/typo3" ]; then
-      echo "WARN Removing incomplete TYPO3 directory"
+      warn "Removing incomplete TYPO3 directory"
       rm -rf /var/www/typo3
     fi
 
-    sudo -i -H -u www-data composer create-project "typo3/cms-base-distribution:${typo3Version}" /var/www/typo3/
+    sudo -i -H -u www-data composer create-project "typo3/cms-base-distribution:${typo3Version}" /var/www/typo3/ \
+      || die "composer create-project failed — check Composer output above"
   fi
 
-  cd ${composerDirectory} || exit
+  cd "${composerDirectory}" || die "Cannot cd to ${composerDirectory}"
 
   # Add Extension directory for custom extensions and sitepackages
   mkdir -p packages
@@ -35,7 +36,7 @@ installTypo3() {
 
   # Install dotenv for environment configuration
   echo "INFO Installing dotenv"
-  sudo -u www-data sh -c "cd ${composerDirectory} && composer require vlucas/phpdotenv --no-interaction" || echo "WARN dotenv installation had issues, continuing..."
+  sudo -u www-data sh -c "cd ${composerDirectory} && composer require vlucas/phpdotenv --no-interaction" || warn "dotenv installation had issues, continuing..."
 
   # Install recommended system extensions
   echo "INFO Installing system extensions"
@@ -48,31 +49,31 @@ installTypo3() {
       typo3/cms-linkvalidator:${typo3Version} \
       typo3/cms-reports:${typo3Version} \
       typo3/cms-opendocs:${typo3Version} \
-      typo3/cms-scheduler:${typo3Version}" || echo "WARN Some system extensions had issues, continuing..."
+      typo3/cms-scheduler:${typo3Version}" || warn "Some system extensions had issues, continuing..."
 
   # Install useful extensions
   echo "INFO Installing useful extensions"
-  sudo -u www-data sh -c "cd ${composerDirectory} && composer require --no-interaction plan2net/webp" || echo "WARN webp extension had issues, continuing..."
+  sudo -u www-data sh -c "cd ${composerDirectory} && composer require --no-interaction plan2net/webp" || warn "webp extension had issues, continuing..."
 
   # Add dev packages
   echo "INFO Installing dev dependencies"
-  sudo -u www-data sh -c "cd ${composerDirectory} && composer require --dev --no-interaction --with-all-dependencies typo3/coding-standards ssch/typo3-rector" || echo "WARN Dev dependencies had issues, continuing..."
+  sudo -u www-data sh -c "cd ${composerDirectory} && composer require --dev --no-interaction --with-all-dependencies typo3/coding-standards ssch/typo3-rector" || warn "Dev dependencies had issues, continuing..."
 
   # Setup coding standards (only if typo3-coding-standards is installed)
   if [ -f "${composerDirectory}vendor/bin/typo3-coding-standards" ]; then
     echo "INFO Setting up coding standards"
-    sudo -u www-data sh -c "cd ${composerDirectory} && composer exec typo3-coding-standards setup project" || echo "WARN Coding standards setup had issues, continuing..."
+    sudo -u www-data sh -c "cd ${composerDirectory} && composer exec typo3-coding-standards setup project" || warn "Coding standards setup had issues, continuing..."
   fi
 
   # Install typo3-console for automated installation and CLI tasks
   echo "INFO Installing typo3-console"
-  sudo -u www-data sh -c "cd ${composerDirectory} && composer require --no-interaction helhum/typo3-console" || echo "WARN typo3-console installation had issues, continuing..."
+  sudo -u www-data sh -c "cd ${composerDirectory} && composer require --no-interaction helhum/typo3-console" || warn "typo3-console installation had issues, continuing..."
 
   # Set permissions
-  find ${composerDirectory} -type d -print0 | xargs -0 chmod 2770
-  find ${composerDirectory} -type f ! -perm /u=x,g=x,o=x -print0 | xargs -0 chmod 0660
+  find "${composerDirectory}" -type d -print0 | xargs -0 chmod 2770
+  find "${composerDirectory}" -type f ! -perm /u=x,g=x,o=x -print0 | xargs -0 chmod 0660
 
-  chown www-data: /var/www/ -R
+  chown www-data:www-data /var/www/ -R
 
   # Add CLI aliases for www-data user
   if test -f "${composerDirectory}vendor/bin/typo3cms"; then
@@ -106,7 +107,7 @@ activateTypo3() {
   echo "INFO Activate TYPO3 installation"
 
   # Create FIRST_INSTALL file to enable setup
-  cd ${typo3PublicDirectory} || exit
+  cd "${typo3PublicDirectory}" || die "Cannot cd to ${typo3PublicDirectory}"
   touch FIRST_INSTALL
 
   # Create .env example file
@@ -439,22 +440,22 @@ EOPHP
   fi
 
   if $setup_success; then
-    echo "INFO TYPO3 setup completed successfully"
+    echo -e "${COLOR_GREEN}INFO TYPO3 setup completed successfully${COLOR_NC}"
     if [ -f "${typo3PublicDirectory}/FIRST_INSTALL" ]; then
       rm "${typo3PublicDirectory}/FIRST_INSTALL"
-      echo "INFO FIRST_INSTALL removed"
+      echo -e "${COLOR_GREEN}INFO FIRST_INSTALL removed${COLOR_NC}"
     fi
     echo "INFO Installing German language pack"
     sudo -u www-data php "${composerDirectory}vendor/bin/typo3" language:update de \
-      || echo "WARN Language pack failed – run manually: sudo -u www-data php vendor/bin/typo3 language:update de"
+      || warn "Language pack failed – run manually: sudo -u www-data php vendor/bin/typo3 language:update de"
   else
     echo ""
-    echo "WARN Automated TYPO3 setup failed."
-    echo "     FIRST_INSTALL kept — complete setup via the web wizard:"
-    echo "     http://${serverDomain}/typo3/install.php"
+    echo -e "${COLOR_YELLOW}${COLOR_BOLD}WARN Automated TYPO3 setup failed.${COLOR_NC}"
+    echo -e "     FIRST_INSTALL kept — complete setup via the web wizard:"
+    echo -e "     ${COLOR_BOLD}http://${serverDomain}/typo3/install.php${COLOR_NC}"
     echo ""
-    echo "     Or retry manually as www-data:"
-    echo "     sudo -u www-data php ${composerDirectory}vendor/bin/typo3 setup"
+    echo    "     Or retry manually as www-data:"
+    echo    "     sudo -u www-data php ${composerDirectory}vendor/bin/typo3 setup"
   fi
 
   echo ""

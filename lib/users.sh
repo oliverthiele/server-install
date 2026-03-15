@@ -16,28 +16,28 @@ configureWwwUser() {
 }
 
 setPermissions() {
-  cd ${composerDirectory} || exit
+  cd "${composerDirectory}" || die "Cannot cd to ${composerDirectory}"
   echo "INFO Set permissions"
 
-  find ${composerDirectory} -type d -print0 | xargs -0 chmod 2770
-  find ${composerDirectory} -type f ! -perm /u=x,g=x,o=x -print0 | xargs -0 chmod 0660
+  find "${composerDirectory}" -type d -print0 | xargs -0 chmod 2770
+  find "${composerDirectory}" -type f ! -perm /u=x,g=x,o=x -print0 | xargs -0 chmod 0660
 
-  chown www-data: /var/www/ -R
+  chown www-data:www-data /var/www/ -R
 
   # Permissions for special files
   if [ -f "/var/www/.ssh/authorized_keys" ]; then
-    chown -h www-data: /var/www/.ssh/authorized_keys
+    chown -h www-data:www-data /var/www/.ssh/authorized_keys
     chmod 0700 /var/www/.ssh/
     chmod 0600 /var/www/.ssh/authorized_keys
   fi
 
   # Make TYPO3 CLI executable
-  chmod +x ${composerDirectory}vendor/typo3/cms-cli/typo3
+  chmod +x "${composerDirectory}vendor/typo3/cms-cli/typo3"
 
   # Old typo3cms file (TYPO3 v12)
-  typo3cmsFile=${composerDirectory}vendor/helhum/typo3-console/typo3cms
-  if test -f "$typo3cmsFile"; then
-    chmod +x $typo3cmsFile
+  local typo3cmsFile="${composerDirectory}vendor/helhum/typo3-console/typo3cms"
+  if test -f "${typo3cmsFile}"; then
+    chmod +x "${typo3cmsFile}"
   fi
 }
 
