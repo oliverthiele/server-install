@@ -51,6 +51,7 @@ DATABASE_PASSWORD="${databasePassword:-}"
 DATABASE_NAME="${databaseName:-}"
 DATABASE_HOST="${databaseHost:-localhost}"
 ENCRYPTION_KEY="${encryptionKey:-}"
+REDIS_PASS="${redisPassword:-}"
 EOL
   chmod 600 "${CONFIG_FILE}"
 }
@@ -81,13 +82,14 @@ loadConfig() {
     databaseName="${DATABASE_NAME}"
     databaseHost="${DATABASE_HOST}"
     encryptionKey="${ENCRYPTION_KEY}"
+    redisPassword="${REDIS_PASS}"
 
     # Export variables for use in other scripts
     export ubuntuVersion phpVersion requiresPhpPpa typo3Version typo3CliName
     export wwwRoot composerDirectory typo3PublicDirectory
     export pathSettings pathAdditionalSettings
     export serverDomain adminEmail botFilterMode systemPass
-    export databaseUser databasePassword databaseName databaseHost encryptionKey
+    export databaseUser databasePassword databaseName databaseHost encryptionKey redisPassword
 
     # Also export path to php.ini for PHP configuration
     export pathToPhpIni="/etc/php/${phpVersion}/fpm/php.ini"

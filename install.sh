@@ -124,11 +124,12 @@ if ! isStepComplete "php_setup"; then
   markStepComplete "php_setup"
 fi
 
-# Step 5: Setup Database
+# Step 5: Setup Database and Redis
 if ! isStepComplete "database_setup"; then
   createDatabase
   secureMariaDB
-  saveConfig  # Save database credentials
+  secureRedis
+  saveConfig  # Save database + Redis credentials
   markStepComplete "database_setup"
 fi
 

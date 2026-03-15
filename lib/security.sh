@@ -305,3 +305,28 @@ EOL
 
   echo "INFO System limits increased (config: /etc/security/limits.d/99-typo3.conf)"
 }
+
+secureRedis() {
+  echo "INFO Securing Redis with password authentication"
+
+  redisPassword=$(generatePassword)
+
+  local redisConf="/etc/redis/redis.conf"
+
+  # Set requirepass (uncomment if commented, otherwise append)
+  if grep -qE "^#?\s*requirepass" "${redisConf}"; then
+    sed -i "s|^#*\s*requirepass.*|requirepass ${redisPassword}|" "${redisConf}"
+  else
+    echo "requirepass ${redisPassword}" >> "${redisConf}"
+  fi
+
+  # Bind to localhost only (belt-and-suspenders alongside firewall)
+  if grep -qE "^bind " "${redisConf}"; then
+    sed -i "s|^bind .*|bind 127.0.0.1 ::1|" "${redisConf}"
+  fi
+
+  systemctl restart redis-server
+
+  export redisPassword
+  echo "INFO Redis secured with requirepass. Password saved to .env as REDIS_PASS."
+}

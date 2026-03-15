@@ -104,6 +104,7 @@ DB_HOST="localhost"
 
 ENCRYPTION_KEY=""
 TYPO3_INSTALL_TOOL=""
+REDIS_PASS=""
 
 SMTP_SERVER=""
 SMTP_USER=""
@@ -141,6 +142,7 @@ DB_HOST="localhost"
 
 ENCRYPTION_KEY="${encryptionKey}"
 TYPO3_INSTALL_TOOL="${installToolHash}"
+REDIS_PASS="${redisPassword}"
 
 SMTP_SERVER=""
 SMTP_USER=""
