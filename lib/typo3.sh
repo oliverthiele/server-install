@@ -455,9 +455,6 @@ EOPHP
     mysql -u"${databaseUser}" -p"${databasePassword}" "${databaseName}" \
       -e "UPDATE be_users SET email = '${adminEmail}' WHERE username = 'typo3-admin';" \
       || warn "Could not update BE user email — set manually in TYPO3 backend"
-    echo "INFO Installing German language pack"
-    sudo -u www-data php "${composerDirectory}vendor/bin/typo3" language:update de \
-      || warn "Language pack failed – run manually: sudo -u www-data php vendor/bin/typo3 language:update de"
   else
     echo ""
     echo -e "${COLOR_YELLOW}${COLOR_BOLD}WARN Automated TYPO3 setup failed.${COLOR_NC}"
