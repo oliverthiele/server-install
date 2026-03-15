@@ -6,30 +6,47 @@
 [![Nginx](https://img.shields.io/badge/Nginx-Brotli-009639.svg)](https://nginx.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-Automated bash installer for TYPO3 on Ubuntu Server. Sets up a complete production stack — Nginx with Brotli, PHP-FPM, MariaDB, Redis, SSL hardening — and installs TYPO3 v12 or v13 via Composer in one interactive run. Interrupted installations can be resumed at any step.
+Automated bash installer for TYPO3 on Ubuntu Server. Sets up a complete production stack — Nginx with Brotli, PHP-FPM,
+MariaDB, Redis, SSL hardening — and installs TYPO3 v12 or v13 via Composer in one interactive run. Interrupted
+installations can be resumed at any step.
+
+> **Designed for fresh servers only.** This script is intended for newly provisioned Ubuntu servers with no existing
+> web server, PHP installation, or TYPO3. Existing Nginx, Apache, or PHP configurations **will be overwritten without
+> warning.** Do not run this on a server with active services or existing websites.
 
 ## Features
 
-| Category | Details |
-|----------|---------|
-| **TYPO3** | v12.4 LTS and v13.4 LTS (interactive selection) |
-| **Ubuntu** | 22.04, 24.04 (recommended) — 20.04 legacy¹ |
-| **PHP** | 8.1 / 8.3 / 8.4 — ondrej/php PPA for PHP 8.4 on 24.04 |
-| **Web server** | Nginx with dynamically compiled Brotli module |
-| **Database** | MariaDB with automated hardening |
-| **Cache** | Redis with `requirepass` authentication, page and section cache pre-configured |
-| **Security** | SSH hardening, fileadmin CSP, SSL/TLS, HTTP method filtering, kernel hardening |
-| **Performance** | TCP BBR, Brotli + Gzip, browser caching, OPcache tuning, PHP-FPM umask + slow log |
-| **Scheduler** | TYPO3 Scheduler cronjob pre-configured (every 5 min, `/etc/cron.d/typo3-scheduler`) |
-| **CLI context** | `TYPO3_CONTEXT` auto-set from nginx config on every shell login (root + www-data) |
-| **Language** | German language pack installed automatically after setup |
-| **Resume support** | Interrupted installations resume at the last completed step |
-| **Resource tuning** | `bin/tune-server.sh` — PHP-FPM + MariaDB tuned to server RAM/CPU |
-| **SSH hardening** | `bin/harden-ssh.sh` — interactive port change, key-only auth, Hetzner-aware |
-| **Slow log** | `bin/toggle-php-slowlog.sh` — enable/disable PHP-FPM slow log (threshold 2s) |
-| **Monitoring** | Optional Monit with web interface |
+| Category            | Details                                                                             |
+|---------------------|-------------------------------------------------------------------------------------|
+| **TYPO3**           | v12.4 LTS and v13.4 LTS (interactive selection)                                     |
+| **Ubuntu**          | 22.04, 24.04 (recommended) — 20.04 legacy¹                                          |
+| **PHP**             | 8.1 / 8.3 / 8.4 — ondrej/php PPA for PHP 8.4 on 24.04                               |
+| **Web server**      | Nginx with dynamically compiled Brotli module                                       |
+| **Database**        | MariaDB with automated hardening                                                    |
+| **Cache**           | Redis with `requirepass` authentication, page and section cache pre-configured      |
+| **Security**        | SSH hardening, fileadmin CSP, SSL/TLS, HTTP method filtering, kernel hardening      |
+| **Performance**     | TCP BBR, Brotli + Gzip, browser caching, OPcache tuning, PHP-FPM umask + slow log   |
+| **Scheduler**       | TYPO3 Scheduler cronjob pre-configured (every 5 min, `/etc/cron.d/typo3-scheduler`) |
+| **CLI context**     | `TYPO3_CONTEXT` auto-set from nginx config on every shell login (root + www-data)   |
+| **Language**        | German language pack installed automatically after setup                            |
+| **Resume support**  | Interrupted installations resume at the last completed step                         |
+| **Resource tuning** | `bin/tune-server.sh` — PHP-FPM + MariaDB tuned to server RAM/CPU                    |
+| **SSH hardening**   | `bin/harden-ssh.sh` — interactive port change, key-only auth, Hetzner-aware         |
+| **Slow log**        | `bin/toggle-php-slowlog.sh` — enable/disable PHP-FPM slow log (threshold 2s)        |
+| **Monitoring**      | Optional Monit with web interface                                                   |
 
 ## Requirements
+
+| Requirement          | Details                                                                  |
+|----------------------|--------------------------------------------------------------------------|
+| OS                   | Ubuntu 22.04 LTS or 24.04 LTS (fresh installation, nothing else running) |
+| RAM                  | 2 GB minimum recommended                                                 |
+| Disk                 | 4 GB free on `/`                                                         |
+| Internet             | Required (apt, Composer, GitHub for Brotli source)                       |
+| SSH key              | Public key in `/root/.ssh/authorized_keys` before running                |
+| Conflicting services | No Apache2, no existing Nginx site configs, ports 80/443 free            |
+
+The installer runs a pre-flight check at startup and will stop or warn if any of these conditions are not met.
 
 Update and reboot before running the installer:
 
@@ -40,6 +57,15 @@ reboot
 
 > The script detects pending reboots via `/var/run/reboot-required` and will stop if a reboot is required.
 
+Add your SSH public key before running (required for key-only login after SSH hardening):
+
+```bash
+# From your local machine:
+ssh-copy-id root@<server-ip>
+# Or paste directly on the server:
+mkdir -p /root/.ssh && echo "ssh-rsa AAAA..." >> /root/.ssh/authorized_keys
+```
+
 VirtualBox only — disable IPv6 if needed:
 
 ```bash
@@ -49,20 +75,21 @@ sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
 
 ### Network / Firewall
 
-This script is designed for servers protected by a network-level firewall (e.g. Hetzner Cloud Firewall). The following services are **not** secured at the application level against external access:
+This script is designed for servers protected by a network-level firewall (e.g. Hetzner Cloud Firewall). The following
+services are **not** secured at the application level against external access:
 
-| Service | Port | Notes |
-|---------|------|-------|
-| MariaDB | 3306 | Binds to localhost only by default |
+| Service | Port | Notes                                                                |
+|---------|------|----------------------------------------------------------------------|
+| MariaDB | 3306 | Binds to localhost only by default                                   |
 | Redis   | 6379 | `requirepass` configured — password stored in `.env` as `REDIS_PASS` |
 
 **Recommended firewall rules** (allow inbound only):
 
-| Port | Protocol | Purpose |
-|------|----------|---------|
-| 80   | TCP | HTTP |
-| 443  | TCP | HTTPS |
-| 22 / 222 | TCP | SSH (close port 22 after running `bin/harden-ssh.sh`) |
+| Port     | Protocol | Purpose                                               |
+|----------|----------|-------------------------------------------------------|
+| 80       | TCP      | HTTP                                                  |
+| 443      | TCP      | HTTPS                                                 |
+| 22 / 222 | TCP      | SSH (close port 22 after running `bin/harden-ssh.sh`) |
 
 On Hetzner Cloud, configure this via the Cloud Firewall in your project settings.
 
@@ -75,7 +102,8 @@ chmod +x install.sh
 sudo ./install.sh
 ```
 
-The installer runs interactively and asks for: TYPO3 version, PHP version, domain, and admin email. At the end it optionally runs `bin/tune-server.sh` and `bin/harden-ssh.sh`.
+The installer runs interactively and asks for: TYPO3 version, PHP version, domain, and admin email. At the end it
+optionally runs `bin/tune-server.sh` and `bin/harden-ssh.sh`.
 
 ## Project Structure
 
@@ -133,23 +161,24 @@ server-install/
 
 ## Resource Tuning
 
-`bin/tune-server.sh` calculates optimal settings based on available RAM and CPU. Safe to re-run after server rescaling (e.g. Hetzner Cloud).
+`bin/tune-server.sh` calculates optimal settings based on available RAM and CPU. Safe to re-run after server rescaling (
+e.g. Hetzner Cloud).
 
 ```bash
 bin/tune-server.sh --dry-run   # Preview without applying
 bin/tune-server.sh             # Apply interactively
 ```
 
-| Service | Parameter | Formula |
-|---------|-----------|---------|
-| PHP-FPM | `pm.max_children` | `RAM × 40% ÷ 80 MB per worker` |
-| PHP-FPM | `pm.start_servers` | `max_children ÷ 4` |
-| PHP-FPM | `pm.min/max_spare_servers` | derived from `max_children` |
-| MariaDB | `innodb_buffer_pool_size` | `RAM × 35%` |
-| MariaDB | `innodb_buffer_pool_instances` | `min(pool_GB, 8)` |
-| MariaDB | `max_connections` | `RAM ÷ 4 MB`, max 500 |
-| MariaDB | `thread_cache_size` | CPU core count |
-| MariaDB | `table_open_cache` | `max_connections × 4` |
+| Service | Parameter                      | Formula                        |
+|---------|--------------------------------|--------------------------------|
+| PHP-FPM | `pm.max_children`              | `RAM × 40% ÷ 80 MB per worker` |
+| PHP-FPM | `pm.start_servers`             | `max_children ÷ 4`             |
+| PHP-FPM | `pm.min/max_spare_servers`     | derived from `max_children`    |
+| MariaDB | `innodb_buffer_pool_size`      | `RAM × 35%`                    |
+| MariaDB | `innodb_buffer_pool_instances` | `min(pool_GB, 8)`              |
+| MariaDB | `max_connections`              | `RAM ÷ 4 MB`, max 500          |
+| MariaDB | `thread_cache_size`            | CPU core count                 |
+| MariaDB | `table_open_cache`             | `max_connections × 4`          |
 
 PHP-FPM: modifies `pool.d/www.conf` (timestamped backup created before each run).
 MariaDB: writes a clean drop-in at `/etc/mysql/mariadb.conf.d/99-tuning.conf`.
@@ -167,31 +196,40 @@ All credentials are written to `/var/www/typo3/install-log-please-remove.log` (m
 
 ### Automated Setup
 
-TYPO3 is set up automatically via `vendor/bin/typo3 setup` (native TYPO3 CLI, available since v12.4). No manual web wizard needed. If the automated setup fails, `FIRST_INSTALL` is kept and the web wizard is available at `http://domain/typo3/install.php`.
+TYPO3 is set up automatically via `vendor/bin/typo3 setup` (native TYPO3 CLI, available since v12.4). No manual web
+wizard needed. If the automated setup fails, `FIRST_INSTALL` is kept and the web wizard is available at
+`http://domain/typo3/install.php`.
 
 ### Installed TYPO3 Extensions
 
-**System extensions:** adminpanel, lowlevel, redirects, recycler, workspaces, linkvalidator, reports, opendocs, scheduler
+**System extensions:** adminpanel, lowlevel, redirects, recycler, workspaces, linkvalidator, reports, opendocs,
+scheduler
 
 **Community extensions:** plan2net/webp (automatic WebP delivery)
 
 **Dev dependencies:** typo3/coding-standards, ssch/typo3-rector
 
+> These are installed to support TYPO3 updates and code quality checks directly on the server. To remove them from a
+> purely production environment: `sudo -u www-data composer install --no-dev`
+
 ### additional.php — Override Behaviour
 
-System settings are configured in `config/system/additional.php`. This file is loaded **after** `config/system/settings.php` and always takes precedence.
+System settings are configured in `config/system/additional.php`. This file is loaded **after**
+`config/system/settings.php` and always takes precedence.
 
-> **Important for integrators:** Settings defined in `additional.php` cannot be changed through the TYPO3 Install Tool or Admin Panel. Any value saved there will be silently overridden on the next request. To change these settings, edit `additional.php` directly on the server.
+> **Important for integrators:** Settings defined in `additional.php` cannot be changed through the TYPO3 Install Tool
+> or Admin Panel. Any value saved there will be silently overridden on the next request. To change these settings, edit
+`additional.php` directly on the server.
 
 Settings locked in `additional.php`:
 
-| Setting | Value | Reason |
-|---------|-------|--------|
-| `SYS/fileCreateMask` | `0660` | Matches PHP-FPM `umask = 0007`; files must not be world-readable |
-| `SYS/folderCreateMask` | `2770` | Setgid bit ensures group inheritance; no world access |
-| `SYS/trustedHostsPattern` | derived from `DOMAIN` in `.env` | Managed via environment variable |
-| `DB/*` | from `.env` | Managed via environment variable |
-| Redis cache backends | `pages` (DB 0), `pagesection` (DB 1) | Requires `REDIS_PASS` from `.env` |
+| Setting                   | Value                                | Reason                                                           |
+|---------------------------|--------------------------------------|------------------------------------------------------------------|
+| `SYS/fileCreateMask`      | `0660`                               | Matches PHP-FPM `umask = 0007`; files must not be world-readable |
+| `SYS/folderCreateMask`    | `2770`                               | Setgid bit ensures group inheritance; no world access            |
+| `SYS/trustedHostsPattern` | derived from `DOMAIN` in `.env`      | Managed via environment variable                                 |
+| `DB/*`                    | from `.env`                          | Managed via environment variable                                 |
+| Redis cache backends      | `pages` (DB 0), `pagesection` (DB 1) | Requires `REDIS_PASS` from `.env`                                |
 
 ### Environment Configuration
 
@@ -233,9 +271,12 @@ fastcgi_param TYPO3_CONTEXT Development;
 #fastcgi_param TYPO3_CONTEXT Production;
 ```
 
-The nginx configuration is the **single source of truth** for the TYPO3 context. Both the CLI shell and the Scheduler cronjob derive their context from it automatically:
+The nginx configuration is the **single source of truth** for the TYPO3 context. Both the CLI shell and the Scheduler
+cronjob derive their context from it automatically:
 
-- **CLI** (`root` and `www-data`): `TYPO3_CONTEXT` is set on every login by reading the active nginx config. No manual `export` needed — switching context in nginx and running `nginx -t && systemctl reload nginx` takes effect on the next shell session.
+- **CLI** (`root` and `www-data`): `TYPO3_CONTEXT` is set on every login by reading the active nginx config. No manual
+  `export` needed — switching context in nginx and running `nginx -t && systemctl reload nginx` takes effect on the next
+  shell session.
 - **Scheduler**: reads the context from nginx at runtime (see `/etc/cron.d/typo3-scheduler`).
 
 ```bash
@@ -254,7 +295,8 @@ A cronjob is installed automatically at `/etc/cron.d/typo3-scheduler`:
 */5 * * * * www-data TYPO3_CONTEXT=$(…nginx config…) php vendor/bin/typo3 scheduler:run
 ```
 
-Output is logged to syslog (`logger -t typo3-scheduler`). Tasks must still be created in the TYPO3 backend — the cronjob only triggers execution.
+Output is logged to syslog (`logger -t typo3-scheduler`). Tasks must still be created in the TYPO3 backend — the cronjob
+only triggers execution.
 
 ## Nginx
 
@@ -286,19 +328,22 @@ Binary media files (mp4, mp3, PDF, images) are served without CSP to avoid brows
 
 During installation, you choose between two modes:
 
-**Staging** — blocks all AI crawlers and SEO scrapers. Suitable for training systems, client preview environments, or any server that should not be indexed.
+**Staging** — blocks all AI crawlers and SEO scrapers. Suitable for training systems, client preview environments, or
+any server that should not be indexed.
 
-**Production** *(default)* — blocks abusive scrapers and Bytedance/TikTok (known for high-volume crawling that can cause server load). Major AI assistants are allowed through so the site remains discoverable via ChatGPT, Claude, Perplexity, and Gemini.
+**Production** *(default)* — blocks abusive scrapers and Bytedance/TikTok (known for high-volume crawling that can cause
+server load). Major AI assistants are allowed through so the site remains discoverable via ChatGPT, Claude, Perplexity,
+and Gemini.
 
-| Bot | Staging | Production |
-|-----|---------|------------|
-| Bytespider (Bytedance/TikTok) | blocked | always blocked |
-| AhrefsBot, SemrushBot, DotBot | blocked | blocked |
-| GPTBot, OAI-SearchBot (ChatGPT) | blocked | allowed |
-| ClaudeBot, anthropic-ai (Claude) | blocked | allowed |
-| PerplexityBot | blocked | allowed |
-| Google-Extended (Gemini) | blocked | allowed |
-| Empty User-Agent | blocked | blocked |
+| Bot                              | Staging | Production     |
+|----------------------------------|---------|----------------|
+| Bytespider (Bytedance/TikTok)    | blocked | always blocked |
+| AhrefsBot, SemrushBot, DotBot    | blocked | blocked        |
+| GPTBot, OAI-SearchBot (ChatGPT)  | blocked | allowed        |
+| ClaudeBot, anthropic-ai (Claude) | blocked | allowed        |
+| PerplexityBot                    | blocked | allowed        |
+| Google-Extended (Gemini)         | blocked | allowed        |
+| Empty User-Agent                 | blocked | blocked        |
 
 Access can be refined per-site via `robots.txt` without changing the Nginx config.
 
@@ -328,7 +373,8 @@ Pre-compressed formats (WOFF2, AVIF, WebP, JPEG, PNG) are excluded from compress
 
 ### SSH Hardening
 
-Basic hardening runs automatically during installation. The interactive port change runs at the end via `bin/harden-ssh.sh`.
+Basic hardening runs automatically during installation. The interactive port change runs at the end via
+`bin/harden-ssh.sh`.
 
 ```bash
 bin/harden-ssh.sh --dry-run   # Preview without applying
@@ -336,9 +382,12 @@ bin/harden-ssh.sh             # Apply interactively (default port: 222)
 bin/harden-ssh.sh --yes       # Non-interactive, use defaults
 ```
 
-Settings applied: custom port, password auth disabled, key-only root login, X11 off, MaxAuthTries 3, LoginGraceTime 30s, UFW rule added automatically.
+Settings applied: custom port, password auth disabled, key-only root login, X11 off, MaxAuthTries 3, LoginGraceTime 30s,
+UFW rule added automatically.
 
-**Hetzner note:** Disabling SSH password auth does not affect Hetzner's "Reset Root Password" feature (QEMU Guest Agent). After a password reset, use the **Hetzner Cloud Console** (web KVM) for emergency access. Keep `qemu-guest-agent` installed.
+**Hetzner note:** Disabling SSH password auth does not affect Hetzner's "Reset Root Password" feature (QEMU Guest
+Agent). After a password reset, use the **Hetzner Cloud Console** (web KVM) for emergency access. Keep
+`qemu-guest-agent` installed.
 
 ### MariaDB Security
 
@@ -396,6 +445,19 @@ cat /var/www/typo3/install-log-please-remove.log
 rm /var/www/typo3/install-log-please-remove.log
 ```
 
+### 5. Delete installation state files
+
+`/root/.typo3-install-state` and `/root/.typo3-install-config` are used by the installer for resume support.
+`/root/.typo3-install-config` contains all generated passwords in plaintext and should be deleted once the
+installation is verified and all credentials have been saved.
+
+> **Note:** Keep `/root/.typo3-install-config` as long as you might need to recover passwords — for example if `.env`
+> files are accidentally deleted. Once you are certain the credentials are backed up elsewhere, delete the file.
+
+```bash
+rm /root/.typo3-install-state /root/.typo3-install-config
+```
+
 ## MariaDB
 
 Root password is saved to `/root/.my.cnf` — no password prompt needed as root:
@@ -422,7 +484,8 @@ typo3 scheduler:run
 
 ### Authentication
 
-Redis is secured with `requirepass` during installation. The password is stored in `/var/www/typo3/.env` as `REDIS_PASS`.
+Redis is secured with `requirepass` during installation. The password is stored in `/var/www/typo3/.env` as
+`REDIS_PASS`.
 
 ```bash
 # Connect with password
@@ -434,9 +497,11 @@ redis-cli -a "<password>" ping   # Expected: PONG
 
 ### Cache Configuration
 
-The `pages` and `pagesection` caches are pre-configured in `additional.php` to use Redis (databases 0 and 1). No manual `settings.yaml` entry needed.
+The `pages` and `pagesection` caches are pre-configured in `additional.php` to use Redis (databases 0 and 1). No manual
+`settings.yaml` entry needed.
 
-> **Note:** Redis cache settings in `additional.php` cannot be changed via the TYPO3 Install Tool — see [additional.php — Override Behaviour](#additionalphp--override-behaviour).
+> **Note:** Redis cache settings in `additional.php` cannot be changed via the TYPO3 Install Tool —
+> see [additional.php — Override Behaviour](#additionalphp--override-behaviour).
 
 To add further caches (e.g. `hash`, `rootline`), edit `config/system/additional.php` directly.
 
@@ -449,7 +514,8 @@ composer require "vendor/extension:@dev"
 
 ## PHP-FPM Slow Log
 
-The slow log is enabled by default (threshold: 2 seconds). It records stack traces for requests that exceed the threshold — there is no overhead for fast requests.
+The slow log is enabled by default (threshold: 2 seconds). It records stack traces for requests that exceed the
+threshold — there is no overhead for fast requests.
 
 ```bash
 bin/toggle-php-slowlog.sh           # Toggle on/off
@@ -480,9 +546,12 @@ backend:
 
 ---
 
-> ¹ **Ubuntu 20.04** reached end-of-life in April 2025. PHP 7.4 (default on 20.04) is EOL since November 2022 and incompatible with TYPO3 v13. Use Ubuntu 22.04 or 24.04 for new installations.
+> ¹ **Ubuntu 20.04** reached end-of-life in April 2025. PHP 7.4 (default on 20.04) is EOL since November 2022 and
+> incompatible with TYPO3 v13. Use Ubuntu 22.04 or 24.04 for new installations.
 >
-> **Ubuntu 22.04** ships nginx 1.18.0, which does not support `ssl_reject_handshake`. The TYPO3 Environment check *"HTTP_HOST contained unexpected host"* will show a warning on 22.04 systems — this is a known limitation for legacy/staging use and does not affect functionality.
+> **Ubuntu 22.04** ships nginx 1.18.0, which does not support `ssl_reject_handshake`. The TYPO3 Environment check *"
+HTTP_HOST contained unexpected host"* will show a warning on 22.04 systems — this is a known limitation for
+> legacy/staging use and does not affect functionality.
 
 ## License
 
