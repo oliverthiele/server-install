@@ -55,31 +55,33 @@ finish() {
     baseUrl="http://${ipAddress}"
   fi
 
-  local setupStatus
+  local setupStatus setupStatusColor
   if [ ! -f "${typo3PublicDirectory}/FIRST_INSTALL" ]; then
     setupStatus="Automated setup completed"
+    setupStatusColor="${COLOR_GREEN}"
   else
     setupStatus="FIRST_INSTALL present — complete via web wizard (see Next Steps)"
+    setupStatusColor="${COLOR_YELLOW}"
   fi
 
   echo ""
-  echo "======================================="
-  echo "        INSTALLATION COMPLETE"
-  echo "======================================="
+  echo -e "${COLOR_CYAN}${COLOR_BOLD}=======================================${COLOR_NC}"
+  echo -e "${COLOR_GREEN}${COLOR_BOLD}        INSTALLATION COMPLETE${COLOR_NC}"
+  echo -e "${COLOR_CYAN}${COLOR_BOLD}=======================================${COLOR_NC}"
   echo ""
-  echo "TYPO3 Backend: ${baseUrl}/typo3"
+  echo -e "TYPO3 Backend: ${COLOR_BOLD}${baseUrl}/typo3${COLOR_NC}"
   echo ""
-  echo "Admin user:     typo3-admin"
-  echo "Admin password: ${systemPass}"
-  echo "DB password:    ${databasePassword}"
+  echo    "Admin user:     typo3-admin"
+  echo -e "Admin password: ${COLOR_BOLD}${systemPass}${COLOR_NC}"
+  echo -e "DB password:    ${COLOR_BOLD}${databasePassword}${COLOR_NC}"
   if [ -n "${redisPassword:-}" ]; then
-    echo "Redis password: ${redisPassword}"
+    echo -e "Redis password: ${COLOR_BOLD}${redisPassword}${COLOR_NC}"
   fi
   echo ""
-  echo "Setup:  ${setupStatus}"
+  echo -e "Setup:  ${setupStatusColor}${setupStatus}${COLOR_NC}"
   echo ""
-  echo "Credentials: ${composerDirectory}install-log-please-remove.log"
-  echo "======================================="
+  echo    "Credentials: ${composerDirectory}install-log-please-remove.log"
+  echo -e "${COLOR_CYAN}${COLOR_BOLD}=======================================${COLOR_NC}"
 
   cat > "${composerDirectory}install-log-please-remove.log" <<EOL
 # TYPO3 Server Installation Log
@@ -137,14 +139,14 @@ printNextSteps() {
   fi
 
   echo ""
-  echo "======================================="
-  echo "             NEXT STEPS"
-  echo "======================================="
+  echo -e "${COLOR_CYAN}${COLOR_BOLD}=======================================${COLOR_NC}"
+  echo -e "${COLOR_CYAN}${COLOR_BOLD}             NEXT STEPS${COLOR_NC}"
+  echo -e "${COLOR_CYAN}${COLOR_BOLD}=======================================${COLOR_NC}"
   echo ""
 
   if [ -f "${typo3PublicDirectory}/FIRST_INSTALL" ]; then
-    echo "  ! Automated TYPO3 setup failed — complete via web wizard:"
-    echo "    ${baseUrl}/typo3/install.php"
+    echo -e "  ${COLOR_YELLOW}${COLOR_BOLD}! Automated TYPO3 setup failed — complete via web wizard:${COLOR_NC}"
+    echo -e "    ${COLOR_BOLD}${baseUrl}/typo3/install.php${COLOR_NC}"
     echo ""
   fi
 
@@ -171,7 +173,9 @@ printNextSteps() {
   echo "     rm ${composerDirectory}install-log-please-remove.log"
   echo ""
 
-  echo "State files (safe to delete after successful install):"
+  echo "State files — delete once credentials are backed up:"
+  echo "  ${STATE_FILE}   (installation progress)"
+  echo "  ${CONFIG_FILE}  (all generated passwords in plaintext)"
   echo "  rm ${STATE_FILE} ${CONFIG_FILE}"
   echo "======================================="
 }
