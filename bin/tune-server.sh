@@ -343,6 +343,10 @@ if [[ ! "${restart_response}" =~ ^([nN])$ ]]; then
     [ "$ver" != "$PRIMARY_VERSION" ] \
       && [ "${SECONDARY_MAX_CHILDREN[$ver]:-1}" -eq 0 ] \
       && continue  # already stopped above
+    if ! "/usr/sbin/php-fpm${ver}" --test 2>/dev/null; then
+      warn "php${ver}-fpm config invalid — skipping restart (run: /usr/sbin/php-fpm${ver} --test)"
+      continue
+    fi
     systemctl restart "php${ver}-fpm"
     echo "INFO php${ver}-fpm restarted"
   done

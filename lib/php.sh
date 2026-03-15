@@ -103,5 +103,6 @@ optimizePhpSettings() {
     echo "request_slowlog_timeout = 2s" >> "${fpmPoolConfig}"
   fi
 
+  "/usr/sbin/php-fpm${phpVersion}" --test || die "PHP-FPM config invalid — not restarting (check /etc/php/${phpVersion}/fpm/pool.d/www.conf)"
   service "php${phpVersion}-fpm" restart
 }
