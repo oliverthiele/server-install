@@ -13,6 +13,11 @@
 
 set -e
 
+# Load shared utilities (colors, warn, die) — works both standalone and when called from install.sh
+SCRIPT_DIR_TUNE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/utils.sh
+source "${SCRIPT_DIR_TUNE}/../lib/utils.sh"
+
 # ── Tuning ratios (adjust if needed) ──────────────────────────────────────────
 
 PHP_WORKER_MB=80      # Estimated RAM per PHP-FPM worker (TYPO3: ~80 MB)
@@ -37,8 +42,7 @@ done
 # ── Root check ────────────────────────────────────────────────────────────────
 
 if [ "$(id -u)" -ne 0 ]; then
-  echo "ERROR: This script must be run as root."
-  exit 1
+  die "This script must be run as root"
 fi
 
 # ── Detect all installed PHP-FPM versions ─────────────────────────────────────
@@ -54,8 +58,7 @@ for conf in /etc/php/*/fpm/pool.d/www.conf; do
 done
 
 if [ "${#PHP_POOL_CONFS[@]}" -eq 0 ]; then
-  echo "ERROR: No PHP-FPM pool configs found under /etc/php/*/fpm/pool.d/www.conf"
-  exit 1
+  die "No PHP-FPM pool configs found under /etc/php/*/fpm/pool.d/www.conf"
 fi
 
 VERSION_COUNT="${#PHP_POOL_CONFS[@]}"

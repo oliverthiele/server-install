@@ -15,16 +15,19 @@
 
 set -e
 
+# Load shared utilities (colors, warn, die) — works both standalone and when called from install.sh
+SCRIPT_DIR_TOGGLE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/utils.sh
+source "${SCRIPT_DIR_TOGGLE}/../lib/utils.sh"
+
 if [[ $EUID -ne 0 ]]; then
-  echo "ERROR This script must be run as root."
-  exit 1
+  die "This script must be run as root"
 fi
 
 # Detect active PHP-FPM pool config
 POOL_CONF=$(ls /etc/php/*/fpm/pool.d/www.conf 2>/dev/null | head -1)
 if [ -z "${POOL_CONF}" ]; then
-  echo "ERROR No PHP-FPM pool config found under /etc/php/*/fpm/pool.d/www.conf"
-  exit 1
+  die "No PHP-FPM pool config found under /etc/php/*/fpm/pool.d/www.conf"
 fi
 
 PHP_VERSION=$(echo "${POOL_CONF}" | grep -oP '/etc/php/\K[0-9]+\.[0-9]+')

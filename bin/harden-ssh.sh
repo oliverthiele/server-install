@@ -19,6 +19,11 @@
 
 set -e
 
+# Load shared utilities (colors, warn, die) — works both standalone and when called from install.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/utils.sh
+source "${SCRIPT_DIR}/../lib/utils.sh"
+
 # ── Constants ─────────────────────────────────────────────────────────────────
 
 SSHD_CONFIG="/etc/ssh/sshd_config"
@@ -40,8 +45,7 @@ done
 # ── Privilege check ───────────────────────────────────────────────────────────
 
 if [[ $EUID -ne 0 ]]; then
-  echo "ERROR This script must be run as root"
-  exit 1
+  die "This script must be run as root"
 fi
 
 # ── Authorized keys check ─────────────────────────────────────────────────────
@@ -57,14 +61,13 @@ echo "==============================================================="
 echo ""
 
 if [[ ${KEY_COUNT} -eq 0 ]]; then
-  echo "ERROR No SSH public keys found in ${AUTHORIZED_KEYS}"
   echo ""
   echo "Disabling password auth without a working key would lock you out."
   echo "Add your public key first:"
   echo "  ssh-copy-id root@<server>"
   echo "  -- or --"
   echo "  echo 'ssh-rsa AAAA...' >> ${AUTHORIZED_KEYS}"
-  exit 1
+  die "No SSH public keys found in ${AUTHORIZED_KEYS}"
 fi
 
 echo "INFO Found ${KEY_COUNT} SSH key(s) in authorized_keys"
@@ -89,7 +92,7 @@ echo ""
 
 # Warn if qemu-guest-agent is NOT installed
 if ! dpkg -l qemu-guest-agent &>/dev/null; then
-  echo "WARN  qemu-guest-agent is not installed."
+  warn "qemu-guest-agent is not installed."
   echo "      On Hetzner, install it for emergency recovery:"
   echo "        apt install qemu-guest-agent && systemctl enable --now qemu-guest-agent"
   echo ""
@@ -105,8 +108,7 @@ else
 fi
 
 if ! [[ "${NEW_PORT}" =~ ^[0-9]+$ ]] || [[ "${NEW_PORT}" -lt 1 ]] || [[ "${NEW_PORT}" -gt 65535 ]]; then
-  echo "ERROR Invalid port: ${NEW_PORT}"
-  exit 1
+  die "Invalid port: ${NEW_PORT}"
 fi
 
 # ── UFW detection ─────────────────────────────────────────────────────────────
@@ -143,7 +145,7 @@ fi
 # ── Confirmation ──────────────────────────────────────────────────────────────
 
 if [[ "${AUTO_YES}" != "true" ]]; then
-  echo "WARNING This applies immediately and changes the SSH port."
+  warn "This applies immediately and changes the SSH port."
   echo "        Open a second terminal and keep it ready before confirming."
   echo ""
   read -rp "Apply SSH hardening? [y/N] " confirm
@@ -204,10 +206,9 @@ fi
 
 echo "INFO Testing SSH configuration..."
 if ! sshd -t; then
-  echo "ERROR SSH config test failed – restoring backup"
   cp "${BACKUP}" "${SSHD_CONFIG}"
   echo "INFO Backup restored. No changes applied."
-  exit 1
+  die "SSH config test failed — backup restored"
 fi
 
 # ── Restart SSH ───────────────────────────────────────────────────────────────
@@ -220,7 +221,7 @@ elif systemctl is-active --quiet sshd 2>/dev/null; then
 else
   # Try starting the service if not currently active
   systemctl restart ssh 2>/dev/null || systemctl restart sshd 2>/dev/null || {
-    echo "WARN Could not restart SSH automatically – please restart manually:"
+    warn "Could not restart SSH automatically – please restart manually:"
     echo "     systemctl restart ssh"
   }
 fi

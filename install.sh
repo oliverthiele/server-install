@@ -6,42 +6,22 @@
 # Optimized for Ubuntu 20.04, 22.04, and 24.04
 ###############################################################################
 
-# Exit on error
-set -e
+# Get script directory — must come first so utils.sh can be sourced early
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Load utils first: provides color variables, die(), and warn() for all checks below
+source "${SCRIPT_DIR}/lib/utils.sh"
 
 # Root check – must run before any system-level operations
 if [[ $EUID -ne 0 ]]; then
-  echo "ERROR This script must be run as root."
-  echo "      Use: sudo ./install.sh"
-  exit 1
+  die "This script must be run as root — use: sudo ./install.sh"
 fi
-
-# Reboot check – Ubuntu writes this file after kernel or libc updates
-if [ -f /var/run/reboot-required ]; then
-  echo "WARN A system reboot is required before running this installer."
-  echo "     This usually means a kernel or core library was updated."
-  echo "     Please reboot and re-run the script:"
-  echo "       reboot"
-  echo ""
-  echo "     To skip this check (not recommended): touch /tmp/skip-reboot-check && ./install.sh"
-  if [ ! -f /tmp/skip-reboot-check ]; then
-    exit 1
-  fi
-  echo "WARN Reboot check skipped."
-fi
-
-# Get script directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# Trap to clean up on exit
-trap 'echo "Script exited with error. Cleaning up..."; cleanup' EXIT
 
 ###############################################################################
-# Load modules
+# Load remaining modules
 ###############################################################################
 
 source "${SCRIPT_DIR}/lib/state.sh"
-source "${SCRIPT_DIR}/lib/utils.sh"
 source "${SCRIPT_DIR}/lib/config.sh"
 source "${SCRIPT_DIR}/lib/system.sh"
 source "${SCRIPT_DIR}/lib/php.sh"
@@ -51,27 +31,47 @@ source "${SCRIPT_DIR}/lib/typo3.sh"
 source "${SCRIPT_DIR}/lib/users.sh"
 source "${SCRIPT_DIR}/lib/security.sh"
 
+# Reboot check – Ubuntu writes this file after kernel or libc updates.
+# Placed after source so warn() and color variables are available.
+if [ -f /var/run/reboot-required ]; then
+  warn "A system reboot is required before running this installer."
+  echo "     This usually means a kernel or core library was updated."
+  echo "     Please reboot and re-run the script:"
+  echo "       reboot"
+  echo ""
+  echo "     To skip this check (not recommended): touch /tmp/skip-reboot-check && ./install.sh"
+  if [ ! -f /tmp/skip-reboot-check ]; then
+    exit 1
+  fi
+  warn "Reboot check skipped."
+fi
+
 ###############################################################################
 # Pre-installation instructions
 ###############################################################################
 
 cat <<'EOF'
 ===============================================================
-TYPO3 Installation Script
+TYPO3 Server Installation Script
 ===============================================================
 
-Before executing this script, ensure you have:
+Designed for FRESH Ubuntu servers — no existing web server,
+no existing PHP, no existing TYPO3. Existing configs WILL be
+overwritten without further warning.
 
-1. Updated your system:
-   $ apt update && apt --assume-yes dist-upgrade && apt --assume-yes autoremove
-   $ reboot
+Before running this script, ensure you have:
 
-2. If using VirtualBox, disable IPv6:
-   $ sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1
-   $ sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
+  1. A freshly installed Ubuntu 22.04 or 24.04
+  2. Updated the system and rebooted:
+       apt update && apt --assume-yes dist-upgrade && apt --assume-yes autoremove
+       reboot
+  3. Added your SSH public key to /root/.ssh/authorized_keys
+       (required for key-only login after SSH hardening)
 
 ===============================================================
 EOF
+
+checkPrerequisites
 
 ###############################################################################
 # Main installation flow
@@ -215,6 +215,3 @@ fi
 
 # Show all remaining TODOs at the very end — after tuning and SSH hardening
 printNextSteps
-
-trap - EXIT
-cleanup
