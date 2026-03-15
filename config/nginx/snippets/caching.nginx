@@ -1,0 +1,63 @@
+# Optimized Browser Caching for PageSpeed 100%
+# For Composer-based TYPO3 installations
+
+# Versioned assets (with version number in filename) - cache forever
+location ~* ^/typo3temp/Assets/.*\.(css|js|mjs|svg|woff2?|ttf|eot|otf|json)$ {
+    expires max;
+    add_header Cache-Control "public, immutable";
+    add_header Vary "Accept-Encoding";
+    access_log off;
+}
+
+# TYPO3 _assets directory (symlinks to extension public folders)
+location ~* ^/_assets/.*\.(css|js|mjs|svg|woff2?|ttf|eot|otf|json)$ {
+    expires 1y;
+    add_header Cache-Control "public, immutable";
+    add_header Vary "Accept-Encoding";
+    access_log off;
+}
+
+# Images and media files
+location ~* \.(jpg|jpeg|png|gif|ico|webp|avif|svg)$ {
+    expires 30d;
+    add_header Cache-Control "public, no-transform";
+    add_header Vary "Accept, Accept-Encoding";
+    access_log off;
+}
+
+# Fonts
+location ~* \.(woff|woff2|ttf|otf|eot)$ {
+    expires 1y;
+    add_header Cache-Control "public, immutable";
+    add_header Access-Control-Allow-Origin "*";
+    access_log off;
+}
+
+# Video files
+location ~* \.(mp4|webm|ogg|ogv|mov)$ {
+    expires 30d;
+    add_header Cache-Control "public";
+    access_log off;
+}
+
+# PDF and documents
+location ~* \.(pdf|doc|docx|xls|xlsx|ppt|pptx)$ {
+    expires 7d;
+    add_header Cache-Control "public";
+}
+
+# Favicon
+location = /favicon.ico {
+    expires max;
+    add_header Cache-Control "public, immutable";
+    log_not_found off;
+    access_log off;
+}
+
+# robots.txt
+location = /robots.txt {
+    expires 1d;
+    add_header Cache-Control "public";
+    log_not_found off;
+    access_log off;
+}

@@ -1,0 +1,30 @@
+# Monit Web Interface
+# Enable this if you have installed Monit
+
+location = /monit {
+    return 301 https://$host/monit/;
+}
+
+location /monit/ {
+    # Basic authentication
+    include snippets/BasicAuth.nginx;
+
+    # Proxy headers
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-Host $host:$server_port;
+    proxy_set_header X-Forwarded-Proto $scheme;
+
+    # Rewrite for monit
+    rewrite ^/monit/(.*) /$1 break;
+
+    # Proxy to Monit (default port 2812)
+    proxy_pass http://localhost:2812/;
+    proxy_redirect http://$proxy_host $scheme://$host:$server_port/monit;
+
+    # Optional: Replace branding in HTML
+    # Uncomment and customize as needed
+    # subs_filter_types text/html text/css text/xml;
+    # sub_filter 'Monit Service Manager' 'System Monitor';
+    # sub_filter 'Use <a href="https://mmonit.com/">M/Monit</a> to manage all your Monit instances' '';
+}

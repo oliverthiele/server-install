@@ -1,0 +1,24 @@
+# Security Headers for improved security and PageSpeed score
+
+# Prevent clickjacking
+add_header X-Frame-Options "SAMEORIGIN" always;
+
+# Prevent MIME-sniffing
+add_header X-Content-Type-Options "nosniff" always;
+
+# Enable XSS Protection (for older browsers)
+add_header X-XSS-Protection "1; mode=block" always;
+
+# Referrer Policy
+add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+# Permissions Policy (formerly Feature Policy)
+add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
+
+# Content Security Policy (adjust based on your needs)
+# Uncomment and customize for your site
+# add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'self';" always;
+
+# HSTS - HTTP Strict Transport Security (only enable after SSL is working!)
+# Uncomment after successful SSL setup
+# add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;

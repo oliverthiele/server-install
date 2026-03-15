@@ -1,0 +1,30 @@
+# IDE
+.idea/
+.claude/
+.vscode/
+*.iml
+
+# Environment files
+.env
+.env.*
+.env.temp
+
+# Log files
+*.log
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Sensitive data
+install-log-please-remove.log
+authorized_keys
+
+# Old scripts
+*.old
