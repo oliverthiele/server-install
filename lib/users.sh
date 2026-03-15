@@ -145,8 +145,9 @@ printNextSteps() {
   echo ""
 
   if [ -f "${typo3PublicDirectory}/FIRST_INSTALL" ]; then
-    echo -e "  ${COLOR_YELLOW}${COLOR_BOLD}! Automated TYPO3 setup failed — complete via web wizard:${COLOR_NC}"
-    echo -e "    ${COLOR_BOLD}${baseUrl}/typo3/install.php${COLOR_NC}"
+    echo -e "  ${COLOR_YELLOW}${COLOR_BOLD}! Automated TYPO3 setup failed${COLOR_NC}"
+    echo -e "    Complete via web wizard:  ${COLOR_BOLD}${baseUrl}/typo3/install.php${COLOR_NC}"
+    echo -e "    Or retry manually:        sudo -u www-data php ${composerDirectory}vendor/bin/typo3 setup"
     echo ""
   fi
 
