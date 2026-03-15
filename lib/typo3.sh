@@ -430,8 +430,9 @@ EOPHP
     --dbname="${databaseName}" \
     --username="${databaseUser}" \
     --password="${databasePassword}" \
-    --admin-user-name="typo3-admin" \
+    --admin-username="typo3-admin" \
     --admin-user-password="${systemPass}" \
+    --admin-email="${adminEmail}" \
     --project-name="TYPO3 CMS" \
     --server-type=other; then
     setup_success=true
@@ -443,6 +444,10 @@ EOPHP
       rm "${typo3PublicDirectory}/FIRST_INSTALL"
       echo -e "${COLOR_GREEN}INFO FIRST_INSTALL removed${COLOR_NC}"
     fi
+    # Set admin email in the database (--admin-email sets it during setup, this ensures it is correct)
+    mysql -u"${databaseUser}" -p"${databasePassword}" "${databaseName}" \
+      -e "UPDATE be_users SET email = '${adminEmail}' WHERE username = 'typo3-admin';" \
+      || warn "Could not update BE user email — set manually in TYPO3 backend"
     echo "INFO Installing German language pack"
     sudo -u www-data php "${composerDirectory}vendor/bin/typo3" language:update de \
       || warn "Language pack failed – run manually: sudo -u www-data php vendor/bin/typo3 language:update de"
