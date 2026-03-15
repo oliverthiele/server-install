@@ -245,26 +245,29 @@ configureSSLHardening() {
 # SSL protocols - only TLS 1.2 and 1.3
 ssl_protocols TLSv1.2 TLSv1.3;
 
-# Strong cipher suites (prioritize modern ciphers)
+# Prefer ECDHE with modern curves; x25519 is fastest and scores 100 on SSL Labs Key Exchange
 ssl_prefer_server_ciphers on;
-ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384';
-
-# DH parameters
-ssl_dhparam /etc/nginx/dhparam.pem;
+ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305';
+ssl_ecdh_curve X25519:secp384r1:secp256r1;
 
 # SSL session cache (performance)
 ssl_session_cache shared:SSL:50m;
 ssl_session_timeout 1d;
 ssl_session_tickets off;
 
-# OCSP Stapling (performance + privacy)
+# OCSP Stapling — requires ssl_trusted_certificate (set by certbot --nginx automatically)
 ssl_stapling on;
 ssl_stapling_verify on;
 resolver 1.1.1.1 1.0.0.1 8.8.8.8 8.8.4.4 valid=300s;
 resolver_timeout 5s;
 
-# HSTS (uncomment after SSL is working!)
-# add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+# HSTS — required for SSL Labs A+, but must be enabled deliberately.
+# Once active, browsers enforce HTTPS for max-age seconds — there is no way to undo this
+# for users who have already received the header without waiting out the full max-age.
+# Do NOT enable on staging subdomains or shared parent domains (e.g. kunde.agentur.de)
+# without understanding the implications for all other subdomains.
+# Uncomment only after SSL is confirmed working and the decision is intentional:
+# add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 EOL
 
   echo "INFO SSL hardening snippet created at /etc/nginx/snippets/ssl-hardening.nginx"
