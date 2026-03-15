@@ -144,7 +144,7 @@ showProgress() {
   completed_steps=${completed_steps:-0}
 
   # Define total expected steps (adjust as needed)
-  total_steps=13
+  total_steps=12
 
   if [ "${completed_steps}" -gt 0 ]; then
     echo "Completed: ${completed_steps}/${total_steps} steps"
