@@ -17,12 +17,16 @@ Automated bash installer for TYPO3 on Ubuntu Server. Sets up a complete producti
 | **PHP** | 8.1 / 8.3 / 8.4 — ondrej/php PPA for PHP 8.4 on 24.04 |
 | **Web server** | Nginx with dynamically compiled Brotli module |
 | **Database** | MariaDB with automated hardening |
-| **Cache** | Redis (php-redis via PPA or pecl) |
+| **Cache** | Redis with `requirepass` authentication, page and section cache pre-configured |
 | **Security** | SSH hardening, fileadmin CSP, SSL/TLS, HTTP method filtering, kernel hardening |
-| **Performance** | TCP BBR, Brotli + Gzip, browser caching, OPcache tuning |
+| **Performance** | TCP BBR, Brotli + Gzip, browser caching, OPcache tuning, PHP-FPM umask + slow log |
+| **Scheduler** | TYPO3 Scheduler cronjob pre-configured (every 5 min, `/etc/cron.d/typo3-scheduler`) |
+| **CLI context** | `TYPO3_CONTEXT` auto-set from nginx config on every shell login (root + www-data) |
+| **Language** | German language pack installed automatically after setup |
 | **Resume support** | Interrupted installations resume at the last completed step |
 | **Resource tuning** | `bin/tune-server.sh` — PHP-FPM + MariaDB tuned to server RAM/CPU |
 | **SSH hardening** | `bin/harden-ssh.sh` — interactive port change, key-only auth, Hetzner-aware |
+| **Slow log** | `bin/toggle-php-slowlog.sh` — enable/disable PHP-FPM slow log (threshold 2s) |
 | **Monitoring** | Optional Monit with web interface |
 
 ## Requirements
@@ -50,7 +54,7 @@ This script is designed for servers protected by a network-level firewall (e.g. 
 | Service | Port | Notes |
 |---------|------|-------|
 | MariaDB | 3306 | Binds to localhost only by default |
-| Redis   | 6379 | No authentication configured — must not be reachable from outside |
+| Redis   | 6379 | `requirepass` configured — password stored in `.env` as `REDIS_PASS` |
 
 **Recommended firewall rules** (allow inbound only):
 
@@ -80,7 +84,8 @@ server-install/
 ├── install.sh                          # Main entry point, orchestrates all steps
 ├── bin/
 │   ├── tune-server.sh                  # Resource tuning (PHP-FPM + MariaDB)
-│   └── harden-ssh.sh                   # Interactive SSH hardening (port change, key-only auth)
+│   ├── harden-ssh.sh                   # Interactive SSH hardening (port change, key-only auth)
+│   └── toggle-php-slowlog.sh           # Enable/disable PHP-FPM slow log
 ├── lib/
 │   ├── state.sh                        # Resume support: saveConfig(), loadConfig(), isStepComplete()
 │   ├── config.sh                       # Interactive prompts: TYPO3 version, domain, email
@@ -111,7 +116,7 @@ server-install/
 - **Nginx** with dynamically compiled Brotli module (matched to installed nginx version)
 - **PHP-FPM** — version depends on Ubuntu release (8.3 on 24.04, 8.1 on 22.04, 7.4 on 20.04¹)
 - **MariaDB** — MySQL-compatible, automatically hardened
-- **Redis** — session and page cache for TYPO3
+- **Redis** — page and section cache for TYPO3, secured with `requirepass`
 
 ### PHP Extensions
 
@@ -156,8 +161,13 @@ The installer creates:
 - Installation path: `/var/www/typo3/`
 - Database: `typo3_1` / DB user: `typo3` (random password)
 - Admin user: `typo3-admin` (random password)
+- Redis: `requirepass` enabled (random password)
 
 All credentials are written to `/var/www/typo3/install-log-please-remove.log` (mode 600).
+
+### Automated Setup
+
+TYPO3 is set up automatically via `vendor/bin/typo3 setup` (native TYPO3 CLI, available since v12.4). No manual web wizard needed. If the automated setup fails, `FIRST_INSTALL` is kept and the web wizard is available at `http://domain/typo3/install.php`.
 
 ### Installed TYPO3 Extensions
 
@@ -166,6 +176,22 @@ All credentials are written to `/var/www/typo3/install-log-please-remove.log` (m
 **Community extensions:** plan2net/webp (automatic WebP delivery)
 
 **Dev dependencies:** typo3/coding-standards, ssch/typo3-rector
+
+### additional.php — Override Behaviour
+
+System settings are configured in `config/system/additional.php`. This file is loaded **after** `config/system/settings.php` and always takes precedence.
+
+> **Important for integrators:** Settings defined in `additional.php` cannot be changed through the TYPO3 Install Tool or Admin Panel. Any value saved there will be silently overridden on the next request. To change these settings, edit `additional.php` directly on the server.
+
+Settings locked in `additional.php`:
+
+| Setting | Value | Reason |
+|---------|-------|--------|
+| `SYS/fileCreateMask` | `0660` | Matches PHP-FPM `umask = 0007`; files must not be world-readable |
+| `SYS/folderCreateMask` | `2770` | Setgid bit ensures group inheritance; no world access |
+| `SYS/trustedHostsPattern` | derived from `DOMAIN` in `.env` | Managed via environment variable |
+| `DB/*` | from `.env` | Managed via environment variable |
+| Redis cache backends | `pages` (DB 0), `pagesection` (DB 1) | Requires `REDIS_PASS` from `.env` |
 
 ### Environment Configuration
 
@@ -186,6 +212,7 @@ DB_HOST="localhost"
 
 ENCRYPTION_KEY="generated-key"
 TYPO3_INSTALL_TOOL="argon2-hash"
+REDIS_PASS="generated-password"
 
 SMTP_SERVER="mail.example.com:587"
 SMTP_USER="smtp-user"
@@ -205,6 +232,29 @@ fastcgi_param TYPO3_CONTEXT Development;
 #fastcgi_param TYPO3_CONTEXT Production/Staging;
 #fastcgi_param TYPO3_CONTEXT Production;
 ```
+
+The nginx configuration is the **single source of truth** for the TYPO3 context. Both the CLI shell and the Scheduler cronjob derive their context from it automatically:
+
+- **CLI** (`root` and `www-data`): `TYPO3_CONTEXT` is set on every login by reading the active nginx config. No manual `export` needed — switching context in nginx and running `nginx -t && systemctl reload nginx` takes effect on the next shell session.
+- **Scheduler**: reads the context from nginx at runtime (see `/etc/cron.d/typo3-scheduler`).
+
+```bash
+# Example: switch to Production
+nano /etc/nginx/sites-available/typo3.nginx
+# Uncomment: fastcgi_param TYPO3_CONTEXT Production;
+nginx -t && systemctl reload nginx
+# Next CLI login: $TYPO3_CONTEXT is automatically "Production"
+```
+
+### Scheduler
+
+A cronjob is installed automatically at `/etc/cron.d/typo3-scheduler`:
+
+```
+*/5 * * * * www-data TYPO3_CONTEXT=$(…nginx config…) php vendor/bin/typo3 scheduler:run
+```
+
+Output is logged to syslog (`logger -t typo3-scheduler`). Tasks must still be created in the TYPO3 backend — the cronjob only triggers execution.
 
 ## Nginx
 
@@ -339,13 +389,7 @@ nano /etc/nginx/sites-available/typo3.nginx
 nginx -t && systemctl reload nginx
 ```
 
-### 4. Remove FIRST_INSTALL
-
-```bash
-rm /var/www/typo3/public/FIRST_INSTALL
-```
-
-### 5. Save and delete install log
+### 4. Save and delete install log
 
 ```bash
 cat /var/www/typo3/install-log-please-remove.log
@@ -364,33 +408,37 @@ grep password /root/.my.cnf   # Retrieve password explicitly
 
 ## TYPO3 CLI
 
+`TYPO3_CONTEXT` is set automatically on login (derived from the nginx config). No manual `export` needed.
+
 ```bash
 sudo -u www-data -s
 
-# TYPO3 v13
 typo3 cache:flush
 typo3 database:updateschema
-
-# TYPO3 v12
-typo3cms cache:flush
-typo3cms database:updateschema
+typo3 scheduler:run
 ```
 
-## Redis Cache for TYPO3
+## Redis
 
-In `config/system/settings.yaml`:
+### Authentication
 
-```yaml
-SYS:
-  caching:
-    cacheConfigurations:
-      pages:
-        backend: TYPO3\CMS\Core\Cache\Backend\RedisBackend
-        options:
-          hostname: localhost
-          port: 6379
-          database: 0
+Redis is secured with `requirepass` during installation. The password is stored in `/var/www/typo3/.env` as `REDIS_PASS`.
+
+```bash
+# Connect with password
+redis-cli -a "$(grep REDIS_PASS /var/www/typo3/.env | cut -d= -f2 | tr -d '"')"
+
+# Test
+redis-cli -a "<password>" ping   # Expected: PONG
 ```
+
+### Cache Configuration
+
+The `pages` and `pagesection` caches are pre-configured in `additional.php` to use Redis (databases 0 and 1). No manual `settings.yaml` entry needed.
+
+> **Note:** Redis cache settings in `additional.php` cannot be changed via the TYPO3 Install Tool — see [additional.php — Override Behaviour](#additionalphp--override-behaviour).
+
+To add further caches (e.g. `hash`, `rootline`), edit `config/system/additional.php` directly.
 
 ## Custom Extensions
 
@@ -399,14 +447,28 @@ cd /var/www/typo3/packages/
 composer require "vendor/extension:@dev"
 ```
 
+## PHP-FPM Slow Log
+
+The slow log is enabled by default (threshold: 2 seconds). It records stack traces for requests that exceed the threshold — there is no overhead for fast requests.
+
+```bash
+bin/toggle-php-slowlog.sh           # Toggle on/off
+bin/toggle-php-slowlog.sh enable    # Enable (2s threshold)
+bin/toggle-php-slowlog.sh disable   # Disable
+bin/toggle-php-slowlog.sh status    # Show current state
+```
+
+Log location: `/var/log/phpX.Y-fpm-slow.log`
+
 ## Troubleshooting
 
 ```bash
 nginx -t                          # Nginx config test
 systemctl status php8.3-fpm       # PHP-FPM status
-redis-cli ping                    # Expected: PONG
+redis-cli ping                    # Expected: PONG (requires -a <password> after install)
 php -m | grep redis               # PHP Redis extension loaded?
 bin/tune-server.sh --dry-run      # Review current tuning recommendations
+bin/toggle-php-slowlog.sh status  # Check slow log state
 ```
 
 TYPO3 v13 with a custom backend entry point — check `config/system/settings.yaml`:
