@@ -226,7 +226,7 @@ Settings locked in `additional.php`:
 
 | Setting                   | Value                                | Reason                                                           |
 |---------------------------|--------------------------------------|------------------------------------------------------------------|
-| `SYS/fileCreateMask`      | `0660`                               | Matches PHP-FPM `umask = 0007`; files must not be world-readable |
+| `SYS/fileCreateMask`      | `0660`                               | Matches PHP-FPM `process.umask = 0007`; files must not be world-readable |
 | `SYS/folderCreateMask`    | `2770`                               | Setgid bit ensures group inheritance; no world access            |
 | `SYS/trustedHostsPattern` | derived from `DOMAIN` in `.env`      | Managed via environment variable                                 |
 | `DB/*`                    | from `.env`                          | Managed via environment variable                                 |

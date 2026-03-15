@@ -76,16 +76,17 @@ optimizePhpSettings() {
   set_php_ini_value "opcache.max_accelerated_files"   "20000"  "${pathToPhpIni}"
   set_php_ini_value "opcache.revalidate_freq"         "60"     "${pathToPhpIni}"
 
-  # PHP-FPM pool: umask 0007 → files 0660, directories 0770
+  # PHP-FPM pool: process.umask 0007 → files 0660, directories 0770
   # Matches TYPO3 SYS/fileCreateMask (0660) and SYS/folderCreateMask (2770).
   # Without this, PHP-FPM uses the OS default umask (usually 022), which
   # creates files with 0644/0755 — TYPO3 then chmod()s them, but any file
   # written outside the TYPO3 API (e.g. by extensions or Composer) stays 0644.
+  # Note: the pool directive is "process.umask", NOT "umask" (which is global-only).
   local fpmPoolConfig="/etc/php/${phpVersion}/fpm/pool.d/www.conf"
-  if grep -qE "^[;[:space:]]*umask\s*=" "${fpmPoolConfig}"; then
-    sed -i "s|^[;[:space:]]*umask\s*=.*|umask = 0007|" "${fpmPoolConfig}"
+  if grep -qE "^[;[:space:]]*process\.umask\s*=" "${fpmPoolConfig}"; then
+    sed -i "s|^[;[:space:]]*process\.umask\s*=.*|process.umask = 0007|" "${fpmPoolConfig}"
   else
-    echo "umask = 0007" >> "${fpmPoolConfig}"
+    echo "process.umask = 0007" >> "${fpmPoolConfig}"
   fi
 
   # PHP-FPM slow log: records requests exceeding 2s.

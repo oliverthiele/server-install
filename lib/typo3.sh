@@ -247,7 +247,7 @@ if (class_exists('\Dotenv\Dotenv')) {
  */
 $GLOBALS['TYPO3_CONF_VARS']['SYS']['folderCreateMask'] = '2770';
 $GLOBALS['TYPO3_CONF_VARS']['SYS']['fileCreateMask'] = '0660';
-// Matches PHP-FPM umask 0007 (set in /etc/php/x.y/fpm/pool.d/www.conf)
+// Matches PHP-FPM process.umask 0007 (set in /etc/php/x.y/fpm/pool.d/www.conf)
 $GLOBALS['TYPO3_CONF_VARS']['SYS']['UTF8filesystem'] = 'en_US.UTF-8';
 $GLOBALS['TYPO3_CONF_VARS']['SYS']['systemLocale'] = 'en_US.UTF-8';
 
