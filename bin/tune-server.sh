@@ -295,8 +295,8 @@ for i in "${!PHP_POOL_CONFS[@]}"; do
   else
     max_ch="${SECONDARY_MAX_CHILDREN[$ver]}"
     if [ "${max_ch}" -eq 0 ]; then
-      systemctl stop "php${ver}-fpm"    2>/dev/null && echo "INFO PHP ${ver}: service stopped"   || true
-      systemctl disable "php${ver}-fpm" 2>/dev/null && echo "INFO PHP ${ver}: service disabled"  || true
+      if systemctl stop "php${ver}-fpm" 2>/dev/null; then echo "INFO PHP ${ver}: service stopped"; fi
+      if systemctl disable "php${ver}-fpm" 2>/dev/null; then echo "INFO PHP ${ver}: service disabled"; fi
       continue
     fi
     start=$(( max_ch / 2 < 1 ? 1 : max_ch / 2 ))
