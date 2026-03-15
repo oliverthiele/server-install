@@ -166,14 +166,20 @@ printNextSteps() {
     step=$((step + 1))
   fi
 
-  echo "  ${step}. Switch TYPO3_CONTEXT to Production (after SSL is working):"
+  echo "  ${step}. Enable HTTP/2 and switch TYPO3_CONTEXT to Production (after SSL is working):"
   echo "     nano /etc/nginx/sites-available/typo3.nginx"
+  echo "     → Add after the listen 443 lines: http2 on;"
   echo "     → Uncomment: fastcgi_param TYPO3_CONTEXT Production;"
   echo "     → nginx -t && systemctl reload nginx"
   echo ""
   step=$((step + 1))
 
   echo "  ${step}. Configure SMTP in /var/www/typo3/.env"
+  echo ""
+  step=$((step + 1))
+
+  echo "  ${step}. Add language packs in TYPO3 backend:"
+  echo "     Admin Tools → Maintenance → Manage Language Packs → Add languages"
   echo ""
   step=$((step + 1))
 
