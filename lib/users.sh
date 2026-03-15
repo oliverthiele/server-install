@@ -42,120 +42,136 @@ setPermissions() {
 }
 
 finish() {
+  local ipAddress
   ipAddress=$(ip -4 addr show eth0 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}')
-
-  # Fallback if eth0 doesn't exist (might be ens33, enp0s3, etc.)
   if [ -z "$ipAddress" ]; then
     ipAddress=$(hostname -I | awk '{print $1}')
   fi
 
-  echo "======================================="
-  echo "====         INSTALLATION         ===="
-  echo "====          COMPLETE            ===="
-  echo "======================================="
-  echo ""
-  echo "TYPO3 Version: ${typo3Version}"
-  echo "TYPO3 User: typo3-admin"
-  echo "TYPO3 Password / SSH password (www-data): ${systemPass}"
-  echo "Database Password: ${databasePassword}"
-  echo "Admin Email: ${adminEmail}"
-  echo ""
-
+  local baseUrl
   if [[ "${serverDomain}" != "_" ]]; then
-    echo "Domain: ${serverDomain}"
-    echo "Please finish the installation in your browser: http://${serverDomain}"
+    baseUrl="http://${serverDomain}"
   else
-    echo "IP Address: ${ipAddress}"
-    echo "Please finish the installation in your browser: http://${ipAddress}"
+    baseUrl="http://${ipAddress}"
   fi
 
-  echo ""
-  echo "All credentials are saved in: ${composerDirectory}install-log-please-remove.log"
-  echo ""
-  echo "======================================="
-  echo "Next steps:"
-  echo "======================================="
-  echo ""
-
-  if [[ "${serverDomain}" != "_" ]]; then
-    echo "  1. Setup SSL certificate:"
-    echo "     certbot --nginx -d ${serverDomain} --email ${adminEmail}"
-    echo ""
+  local setupStatus
+  if [ ! -f "${typo3PublicDirectory}/FIRST_INSTALL" ]; then
+    setupStatus="Automated setup completed"
   else
-    echo "  1. Setup domain in /var/www/typo3/.env"
-    echo "     Then run: certbot --nginx -d yourdomain.com --email ${adminEmail}"
-    echo ""
+    setupStatus="FIRST_INSTALL present — complete via web wizard (see Next Steps)"
   fi
 
-  echo "  2. Configure TYPO3 in /var/www/typo3/.env"
-  echo "     - Set DOMAIN=${serverDomain}"
-  echo "     - Configure SMTP settings"
-  echo ""
-  echo "  3. Change TYPO3_CONTEXT to Production in:"
-  echo "     /etc/nginx/sites-available/typo3.nginx"
-  echo "     (Change line: fastcgi_param TYPO3_CONTEXT Production;)"
-  echo ""
-  echo "  4. Remove FIRST_INSTALL file:"
-  echo "     rm ${typo3PublicDirectory}FIRST_INSTALL"
-  echo ""
-
-  if [[ "${monitInstalled}" == "true" ]]; then
-    echo "  5. Monit is installed:"
-    echo "     - Web interface: http://localhost:2812/"
-    echo "     - To expose via Nginx, uncomment monit.nginx in site config"
-    echo ""
-  fi
-
-  echo "  6. Delete installation log:"
-  echo "     rm ${composerDirectory}install-log-please-remove.log"
   echo ""
   echo "======================================="
+  echo "        INSTALLATION COMPLETE"
+  echo "======================================="
+  echo ""
+  echo "TYPO3 Backend: ${baseUrl}/typo3"
+  echo ""
+  echo "Admin user:     typo3-admin"
+  echo "Admin password: ${systemPass}"
+  echo "DB password:    ${databasePassword}"
+  if [ -n "${redisPassword:-}" ]; then
+    echo "Redis password: ${redisPassword}"
+  fi
+  echo ""
+  echo "Setup:  ${setupStatus}"
+  echo ""
+  echo "Credentials: ${composerDirectory}install-log-please-remove.log"
+  echo "======================================="
 
-  cat >${composerDirectory}install-log-please-remove.log <<EOL
+  cat > "${composerDirectory}install-log-please-remove.log" <<EOL
 # TYPO3 Server Installation Log
 # Generated: $(date)
+# DELETE THIS FILE after noting credentials – mode 600, www-data only
 
-## TYPO3:
-    Version: ${typo3Version}
-    Path: ${composerDirectory}
-    Admin User: typo3-admin
-    Admin Password: ${systemPass}
+## TYPO3
+    Version:        ${typo3Version}
+    Path:           ${composerDirectory}
+    Backend:        ${baseUrl}/typo3
+    Admin user:     typo3-admin
+    Admin password: ${systemPass}
 
-## System User (SSH):
-    User: www-data
+## System user (SSH)
+    User:     www-data
     Password: ${systemPass}
 
-## Database:
+## Database
     Database: ${databaseName}
-    User: ${databaseUser}
+    User:     ${databaseUser}
     Password: ${databasePassword}
-    Host: localhost
+    Host:     localhost
 
-## Server:
-    IP Address: ${ipAddress}
+## Redis
+    Password: ${redisPassword:-not configured}
+
+## Server
+    IP:     ${ipAddress}
     Domain: ${serverDomain}
-    Admin Email: ${adminEmail}
+    Email:  ${adminEmail}
 
-## SSL Setup:
-    Run: certbot --nginx -d ${serverDomain} --email ${adminEmail}
+## Setup status
+    ${setupStatus}
 
-## Monit:
-    Installed: ${monitInstalled}
-$(if [[ "${monitInstalled}" == "true" ]]; then echo "    Web Interface: http://localhost:2812/"; fi)
-
-## Important Next Steps:
-    1. Configure domain in /var/www/typo3/.env
-    2. Setup SSL certificate with certbot
-    3. Change TYPO3_CONTEXT to Production in nginx config
-    4. Remove FIRST_INSTALL file: rm ${typo3PublicDirectory}FIRST_INSTALL
-    5. DELETE THIS FILE after noting down the credentials!
-
-## Security:
-    - This file contains sensitive information
-    - Store passwords in a secure password manager
-    - Delete this file immediately after setup
+## Next steps
+    1. certbot --nginx -d ${serverDomain} --email ${adminEmail}
+    2. Set TYPO3_CONTEXT to Production in /etc/nginx/sites-available/typo3.nginx
+    3. Configure SMTP in /var/www/typo3/.env
+    4. DELETE THIS FILE: rm ${composerDirectory}install-log-please-remove.log
 EOL
 
-  chown www-data: ${composerDirectory}install-log-please-remove.log
-  chmod 0600 ${composerDirectory}install-log-please-remove.log
+  chown www-data: "${composerDirectory}install-log-please-remove.log"
+  chmod 0600 "${composerDirectory}install-log-please-remove.log"
+}
+
+printNextSteps() {
+  local ipAddress
+  ipAddress=$(hostname -I | awk '{print $1}')
+
+  local baseUrl
+  if [[ "${serverDomain}" != "_" ]]; then
+    baseUrl="http://${serverDomain}"
+  else
+    baseUrl="http://${ipAddress}"
+  fi
+
+  echo ""
+  echo "======================================="
+  echo "             NEXT STEPS"
+  echo "======================================="
+  echo ""
+
+  if [ -f "${typo3PublicDirectory}/FIRST_INSTALL" ]; then
+    echo "  ! Automated TYPO3 setup failed — complete via web wizard:"
+    echo "    ${baseUrl}/typo3/install.php"
+    echo ""
+  fi
+
+  local step=1
+  if [[ "${serverDomain}" != "_" ]]; then
+    echo "  ${step}. SSL certificate (DNS must point to this server first):"
+    echo "     certbot --nginx -d ${serverDomain} --email ${adminEmail}"
+    echo ""
+    step=$((step + 1))
+  fi
+
+  echo "  ${step}. Switch TYPO3_CONTEXT to Production (after SSL is working):"
+  echo "     nano /etc/nginx/sites-available/typo3.nginx"
+  echo "     → Uncomment: fastcgi_param TYPO3_CONTEXT Production;"
+  echo "     → nginx -t && systemctl reload nginx"
+  echo ""
+  step=$((step + 1))
+
+  echo "  ${step}. Configure SMTP in /var/www/typo3/.env"
+  echo ""
+  step=$((step + 1))
+
+  echo "  ${step}. Delete installation log after saving credentials:"
+  echo "     rm ${composerDirectory}install-log-please-remove.log"
+  echo ""
+
+  echo "State files (safe to delete after successful install):"
+  echo "  rm ${STATE_FILE} ${CONFIG_FILE}"
+  echo "======================================="
 }

@@ -190,10 +190,6 @@ if ! isStepComplete "finalization"; then
   markStepComplete "finalization"
 fi
 
-echo ""
-echo "==============================================================="
-echo "Installation completed successfully!"
-echo "==============================================================="
 
 # Optional: tune PHP-FPM and MariaDB to match server resources
 echo ""
@@ -216,14 +212,9 @@ else
   echo "INFO Skipped. Run manually anytime: bin/harden-ssh.sh"
   echo "INFO Dry-run preview:               bin/harden-ssh.sh --dry-run"
 fi
-echo "You can safely delete the state files:"
-echo "  rm ${STATE_FILE}"
-echo "  rm ${CONFIG_FILE}"
-echo "==============================================================="
 
-echo "==============================================================="
-echo "End of script..."
-echo "==============================================================="
+# Show all remaining TODOs at the very end — after tuning and SSH hardening
+printNextSteps
 
 trap - EXIT
 cleanup
