@@ -470,19 +470,6 @@ EOPHP
     echo    "     sudo -u www-data php ${composerDirectory}vendor/bin/typo3 setup"
   fi
 
-  echo ""
-  echo "==============================================================="
-  echo "TYPO3 Installation Completed!"
-  echo "==============================================================="
-  echo "Admin User: typo3-admin"
-  echo "Admin Password: ${systemPass}"
-  echo "Install Tool Password: ${systemPass}"
-  echo ""
-  echo "Next steps:"
-  echo "1. Access TYPO3 Backend: http://${serverDomain}/typo3"
-  echo "2. Configure SSL certificate (recommended)"
-  echo "3. Set up SMTP for email sending (edit .env file)"
-  echo "==============================================================="
 }
 
 setupScheduler() {

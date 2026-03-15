@@ -59,7 +59,18 @@ setVariables() {
 
   # TYPO3 backend admin real name (stored in be_users.realName)
   echo "---------------------------------------"
-  read -rp 'Enter TYPO3 admin real name (e.g. "Jane Doe") [leave empty to skip]: ' adminRealName
+  while true; do
+    read -rp 'Enter TYPO3 admin real name (e.g. "Jane Doe") [leave empty to skip]: ' adminRealName
+    if [[ -z "${adminRealName}" ]]; then
+      break
+    elif [[ ${#adminRealName} -gt 80 ]]; then
+      echo "Name too long (max 80 characters)."
+    elif [[ ! "${adminRealName}" =~ ^[[:print:]]+$ ]]; then
+      echo "Name contains invalid characters."
+    else
+      break
+    fi
+  done
   echo ""
 
   # Bot filter mode
