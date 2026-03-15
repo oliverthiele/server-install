@@ -109,7 +109,7 @@ compileNginxWithBrotli() {
     return 0
   fi
 
-  cd /usr/local/src/nginx-${nginxVersion} || exit
+  cd "/usr/local/src/nginx-${nginxVersion}" || exit
   ./configure --with-compat --add-dynamic-module=../ngx_brotli
   make modules
 

@@ -103,7 +103,7 @@ loadConfig() {
 # Mark a step as completed
 markStepComplete() {
   local step_name="$1"
-  local timestamp=$(date +%s)
+  local timestamp; timestamp=$(date +%s)
 
   if ! grep -q "^STEP_${step_name}=" "${STATE_FILE}"; then
     echo "STEP_${step_name}=${timestamp}" >> "${STATE_FILE}"
@@ -180,7 +180,7 @@ cleanState() {
 askContinuePrevious() {
   if [ -f "${STATE_FILE}" ]; then
     # Check if there are actually completed steps (not just initialized)
-    local step_count=$(grep -c "^STEP_" "${STATE_FILE}" 2>/dev/null || echo "0")
+    local step_count; step_count=$(grep -c "^STEP_" "${STATE_FILE}" 2>/dev/null || echo "0")
     # Remove any whitespace/newlines and ensure it's a valid integer
     step_count=$(echo "${step_count}" | tr -d '\n\r\t ' | grep -o '[0-9]*' | head -n1)
     # Default to 0 if empty

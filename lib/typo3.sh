@@ -182,10 +182,10 @@ EOL
   chown www-data:www-data /var/www/typo3/.env*
 
   # Create settings directory
-  mkdir -p ${pathSettings}
+  mkdir -p "${pathSettings}"
 
   # Create additional.php configuration1
-  cat >${pathAdditionalSettings} <<'EOPHP'
+  cat >"${pathAdditionalSettings}" <<'EOPHP'
 <?php
 
 declare(strict_types=1);
@@ -413,8 +413,8 @@ if (!$installToolPassword) {
 EOPHP
 
   # Set ownership of settings
-  chown www-data:www-data ${pathAdditionalSettings}
-  chmod 660 ${pathAdditionalSettings}
+  chown www-data:www-data "${pathAdditionalSettings}"
+  chmod 660 "${pathAdditionalSettings}"
 
   # Run TYPO3 automated setup
   # Uses the native TYPO3 CLI 'setup' command (available since TYPO3 v12.4).

@@ -30,7 +30,7 @@ cleanTargetDirectoryAndDatabase() {
   if [ -d "${composerDirectory}" ]; then
     read -rp "The directory ${composerDirectory} already exists. Are you sure you want to delete it? The database ${databaseName} will be dropped, too! [y/N] " response
     if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-      rm -rf ${composerDirectory}
+      rm -rf "${composerDirectory}"
       echo "Directory ${composerDirectory} removed"
 
       mysql -e "DROP DATABASE IF EXISTS ${databaseName};"
