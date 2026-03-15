@@ -237,9 +237,16 @@ if (class_exists('\Dotenv\Dotenv')) {
 
 /**
  * System configuration (applies to all environments)
+ *
+ * NOTE: Settings configured here override anything saved via the TYPO3 Install
+ * Tool or Admin Panel, because additional.php is always loaded last and takes
+ * precedence over config/system/settings.php. Changes made through the TYPO3
+ * backend will appear to be saved but will be silently overridden on the next
+ * request. To change these values, edit this file directly.
  */
 $GLOBALS['TYPO3_CONF_VARS']['SYS']['folderCreateMask'] = '2770';
 $GLOBALS['TYPO3_CONF_VARS']['SYS']['fileCreateMask'] = '0660';
+// Matches PHP-FPM umask 0007 (set in /etc/php/x.y/fpm/pool.d/www.conf)
 $GLOBALS['TYPO3_CONF_VARS']['SYS']['UTF8filesystem'] = 'en_US.UTF-8';
 $GLOBALS['TYPO3_CONF_VARS']['SYS']['systemLocale'] = 'en_US.UTF-8';
 
@@ -366,6 +373,30 @@ if (getenv('IS_DDEV_PROJECT') === 'true') {
         ]
     );
 }
+
+/**
+ * Redis cache configuration
+ * Requires Redis authentication (requirepass configured during installation).
+ * Password is read from REDIS_PASS in the .env file.
+ * To disable Redis for a specific cache, remove the corresponding entries
+ * from config/system/settings.yaml — additional.php takes precedence.
+ */
+$redisPassword = $_ENV['REDIS_PASS'] ?? getenv('REDIS_PASS') ?: '';
+$redisConnectionOptions = [
+    'hostname' => 'localhost',
+    'port'     => 6379,
+    'password' => $redisPassword,
+];
+
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['pages']['backend'] =
+    \TYPO3\CMS\Core\Cache\Backend\RedisBackend::class;
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['pages']['options'] =
+    array_merge($redisConnectionOptions, ['database' => 0]);
+
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['pagesection']['backend'] =
+    \TYPO3\CMS\Core\Cache\Backend\RedisBackend::class;
+$GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['pagesection']['options'] =
+    array_merge($redisConnectionOptions, ['database' => 1]);
 
 /**
  * TYPO3 Install Tool Password
