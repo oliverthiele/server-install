@@ -178,13 +178,7 @@ if ! isStepComplete "nodejs_install"; then
   markStepComplete "nodejs_install"
 fi
 
-# Step 12: Optional software
-if ! isStepComplete "optional_software"; then
-  installAdditionalSoftware
-  markStepComplete "optional_software"
-fi
-
-# Step 13: Finish
+# Step 12: Finish
 if ! isStepComplete "finalization"; then
   finish
   markStepComplete "finalization"

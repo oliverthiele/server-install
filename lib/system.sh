@@ -44,37 +44,6 @@ installCertbot() {
   apt --assume-yes install certbot python3-certbot-nginx
 }
 
-installAdditionalSoftware() {
-  local monitResponseRegex='^([yY][eE][sS]|[yY])$'
-  read -rp "Do you want to install monit? [y/N] " response
-  if [[ "$response" =~ $monitResponseRegex ]]; then
-    apt --assume-yes install monit
-
-    # Configure Monit with admin email
-    if [[ -n "${adminEmail}" ]]; then
-      echo "INFO Configuring Monit with admin email: ${adminEmail}"
-
-      # Set alert email in monitrc
-      if ! grep -q "set alert ${adminEmail}" /etc/monit/monitrc; then
-        sed -i "/^#.*set alert.*not on.*{.*instance.*}/a set alert ${adminEmail}" /etc/monit/monitrc
-      fi
-
-      # Enable web interface on localhost:2812
-      sed -i 's/# set httpd port 2812 and/set httpd port 2812 and/' /etc/monit/monitrc
-      sed -i 's/#     use address localhost/    use address localhost/' /etc/monit/monitrc
-      sed -i 's/#     allow localhost/    allow localhost/' /etc/monit/monitrc
-
-      systemctl restart monit
-
-      echo "INFO Monit installed and configured. Web interface available at http://localhost:2812/"
-      echo "INFO To enable Monit in Nginx, uncomment the monit.nginx snippet in your site config"
-    fi
-
-    export monitInstalled="true"
-  else
-    export monitInstalled="false"
-  fi
-}
 
 installComposer() {
   echo "Install composer from https://getcomposer.org"
