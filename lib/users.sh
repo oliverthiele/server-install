@@ -55,33 +55,12 @@ finish() {
     baseUrl="http://${ipAddress}"
   fi
 
-  local setupStatus setupStatusColor
+  local setupStatus
   if [ ! -f "${typo3PublicDirectory}/FIRST_INSTALL" ]; then
     setupStatus="Automated setup completed"
-    setupStatusColor="${COLOR_GREEN}"
   else
-    setupStatus="FIRST_INSTALL present — complete via web wizard (see Next Steps)"
-    setupStatusColor="${COLOR_YELLOW}"
+    setupStatus="FIRST_INSTALL present — complete via web wizard"
   fi
-
-  echo ""
-  echo -e "${COLOR_CYAN}${COLOR_BOLD}=======================================${COLOR_NC}"
-  echo -e "${COLOR_GREEN}${COLOR_BOLD}        INSTALLATION COMPLETE${COLOR_NC}"
-  echo -e "${COLOR_CYAN}${COLOR_BOLD}=======================================${COLOR_NC}"
-  echo ""
-  echo -e "TYPO3 Backend: ${COLOR_BOLD}${baseUrl}/typo3${COLOR_NC}"
-  echo ""
-  echo    "Admin user:     typo3-admin"
-  echo -e "Admin password: ${COLOR_BOLD}${systemPass}${COLOR_NC}"
-  echo -e "DB password:    ${COLOR_BOLD}${databasePassword}${COLOR_NC}"
-  if [ -n "${redisPassword:-}" ]; then
-    echo -e "Redis password: ${COLOR_BOLD}${redisPassword}${COLOR_NC}"
-  fi
-  echo ""
-  echo -e "Setup:  ${setupStatusColor}${setupStatus}${COLOR_NC}"
-  echo ""
-  echo    "Credentials: ${composerDirectory}install-log-please-remove.log"
-  echo -e "${COLOR_CYAN}${COLOR_BOLD}=======================================${COLOR_NC}"
 
   cat > "${composerDirectory}install-log-please-remove.log" <<EOL
 # TYPO3 Server Installation Log
@@ -137,6 +116,34 @@ printNextSteps() {
   else
     baseUrl="http://${ipAddress}"
   fi
+
+  local setupStatus setupStatusColor
+  if [ ! -f "${typo3PublicDirectory}/FIRST_INSTALL" ]; then
+    setupStatus="Automated setup completed"
+    setupStatusColor="${COLOR_GREEN}"
+  else
+    setupStatus="FIRST_INSTALL present — complete via web wizard (see below)"
+    setupStatusColor="${COLOR_YELLOW}"
+  fi
+
+  echo ""
+  echo -e "${COLOR_CYAN}${COLOR_BOLD}=======================================${COLOR_NC}"
+  echo -e "${COLOR_GREEN}${COLOR_BOLD}        INSTALLATION COMPLETE${COLOR_NC}"
+  echo -e "${COLOR_CYAN}${COLOR_BOLD}=======================================${COLOR_NC}"
+  echo ""
+  echo -e "TYPO3 Backend: ${COLOR_BOLD}${baseUrl}/typo3${COLOR_NC}"
+  echo ""
+  echo    "Admin user:     typo3-admin"
+  echo -e "Admin password: ${COLOR_BOLD}${systemPass}${COLOR_NC}"
+  echo -e "DB password:    ${COLOR_BOLD}${databasePassword}${COLOR_NC}"
+  if [ -n "${redisPassword:-}" ]; then
+    echo -e "Redis password: ${COLOR_BOLD}${redisPassword}${COLOR_NC}"
+  fi
+  echo ""
+  echo -e "Setup:  ${setupStatusColor}${setupStatus}${COLOR_NC}"
+  echo ""
+  echo    "Credentials saved to: ${composerDirectory}install-log-please-remove.log"
+  echo -e "${COLOR_CYAN}${COLOR_BOLD}=======================================${COLOR_NC}"
 
   echo ""
   echo -e "${COLOR_CYAN}${COLOR_BOLD}=======================================${COLOR_NC}"
