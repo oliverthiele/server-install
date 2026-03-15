@@ -11,8 +11,6 @@
 #   bin/tune-server.sh            # Interactive mode
 #   bin/tune-server.sh --dry-run  # Show recommendations without applying
 
-set -e
-
 # Load shared utilities (colors, warn, die) — works both standalone and when called from install.sh
 SCRIPT_DIR_TUNE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../lib/utils.sh
@@ -174,6 +172,11 @@ PHP_MIN_SPARE=$(( PHP_MAX_CHILDREN / 4 ))
 PHP_MAX_SPARE=$(( PHP_MAX_CHILDREN / 2 ))
 [ "${PHP_MAX_SPARE}" -lt 2 ] && PHP_MAX_SPARE=2
 
+# PHP-FPM requires: min_spare_servers <= start_servers <= max_spare_servers
+if [ "${PHP_MIN_SPARE}" -gt "${PHP_START_SERVERS}" ] || [ "${PHP_START_SERVERS}" -gt "${PHP_MAX_SPARE}" ]; then
+  die "Internal error: calculated PHP-FPM values violate constraint (min_spare <= start_servers <= max_spare): min=${PHP_MIN_SPARE} start=${PHP_START_SERVERS} max=${PHP_MAX_SPARE} — adjust tuning ratios"
+fi
+
 # ── Calculate MariaDB values ──────────────────────────────────────────────────
 
 INNODB_BUFFER_POOL_MB=$(( TOTAL_RAM_MB * MARIADB_RAM_RATIO / 100 ))
@@ -281,7 +284,7 @@ for i in "${!PHP_POOL_CONFS[@]}"; do
   ver="${PHP_VERSIONS[$i]}"
 
   backup="${conf}.bak.${TIMESTAMP}"
-  cp "${conf}" "${backup}"
+  cp "${conf}" "${backup}" || die "Failed to create backup: ${backup}"
   echo "INFO PHP ${ver}: backup created: ${backup}"
 
   if [ "$ver" = "$PRIMARY_VERSION" ]; then
@@ -343,8 +346,8 @@ if [[ ! "${restart_response}" =~ ^([nN])$ ]]; then
     [ "$ver" != "$PRIMARY_VERSION" ] \
       && [ "${SECONDARY_MAX_CHILDREN[$ver]:-1}" -eq 0 ] \
       && continue  # already stopped above
-    if ! "/usr/sbin/php-fpm${ver}" --test 2>/dev/null; then
-      warn "php${ver}-fpm config invalid — skipping restart (run: /usr/sbin/php-fpm${ver} --test)"
+    if ! "/usr/sbin/php-fpm${ver}" --test; then
+      warn "php${ver}-fpm config invalid — skipping restart"
       continue
     fi
     systemctl restart "php${ver}-fpm"
