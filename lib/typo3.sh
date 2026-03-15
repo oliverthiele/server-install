@@ -406,14 +406,12 @@ $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['pagesectio
 
 /**
  * TYPO3 Install Tool Password
- * Required for TYPO3 to function properly
+ * Managed from .env (TYPO3_INSTALL_TOOL = argon2id hash of the install tool password).
+ * additional.php takes precedence over settings.php, so this is always the active value.
  */
 $installToolPassword = $_ENV['TYPO3_INSTALL_TOOL'] ?? getenv('TYPO3_INSTALL_TOOL') ?: '';
-if (!$installToolPassword) {
-    // Only show error in Install Tool context to avoid breaking frontend
-    if (defined('TYPO3_enterInstallScript') || PHP_SAPI === 'cli') {
-        error_log('TYPO3 Install Tool password not configured in .env file');
-    }
+if ($installToolPassword) {
+    $GLOBALS['TYPO3_CONF_VARS']['BE']['installToolPassword'] = $installToolPassword;
 }
 EOPHP
 
