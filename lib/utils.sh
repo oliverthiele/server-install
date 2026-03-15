@@ -30,23 +30,50 @@ export -f warn
 generatePassword() {
   # Uses /dev/urandom via openssl for cryptographically secure randomness.
   # Rejection sampling avoids modulo bias when mapping bytes to charset indices.
+  # Guarantees at least one uppercase, lowercase, digit, and symbol —
+  # required by TYPO3's default password policy.
   local charset='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-*!@$%_'
-  local charset_length=${#charset}
-  # Highest byte value that maps evenly onto the charset (avoids modulo bias)
-  local rejection_threshold=$(( (256 / charset_length) * charset_length ))
+  local upper='ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  local lower='abcdefghijklmnopqrstuvwxyz'
+  local digits='0123456789'
+  local symbols='+-*!@$%_'
   local target_length=20
   local password=""
 
-  while [ ${#password} -lt ${target_length} ]; do
-    local hex_byte
-    hex_byte=$(openssl rand -hex 1)
+  # Helper: pick one random character from a given charset using rejection sampling
+  _pick_one() {
+    local chars="$1"
+    local len=${#chars}
+    local threshold=$(( (256 / len) * len ))
+    local result=""
+    while [ -z "${result}" ]; do
+      local hex; hex=$(openssl rand -hex 1)
+      local dec=$(( 16#${hex} ))
+      if [ ${dec} -lt ${threshold} ]; then
+        result="${chars:$(( dec % len )):1}"
+      fi
+    done
+    echo "${result}"
+  }
+
+  # Guarantee one character from each required class (positions 0–3)
+  local guaranteed
+  guaranteed="$(_pick_one "${upper}")$(_pick_one "${lower}")$(_pick_one "${digits}")$(_pick_one "${symbols}")"
+
+  # Fill remaining positions from the full charset
+  local charset_length=${#charset}
+  local rejection_threshold=$(( (256 / charset_length) * charset_length ))
+  local fill=""
+  while [ ${#fill} -lt $(( target_length - 4 )) ]; do
+    local hex_byte; hex_byte=$(openssl rand -hex 1)
     local decimal=$(( 16#${hex_byte} ))
-    # Discard bytes above the rejection threshold to prevent bias
     if [ ${decimal} -lt ${rejection_threshold} ]; then
-      local index=$(( decimal % charset_length ))
-      password+="${charset:${index}:1}"
+      fill+="${charset:$(( decimal % charset_length )):1}"
     fi
   done
+
+  # Shuffle guaranteed + fill characters together
+  password=$(echo "${guaranteed}${fill}" | fold -w1 | shuf | tr -d '\n')
 
   echo "${password}"
 }

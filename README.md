@@ -187,9 +187,9 @@ MariaDB: writes a clean drop-in at `/etc/mysql/mariadb.conf.d/99-tuning.conf`.
 The installer creates:
 
 - Installation path: `/var/www/typo3/`
-- Database: `typo3_1` / DB user: `typo3` (random password)
-- Admin user: `typo3-admin` (random password)
-- Redis: `requirepass` enabled (random password)
+- Database: `typo3_1` / DB user: `typo3` (20-char random password — uppercase, lowercase, digit, symbol)
+- Admin user: `typo3-admin` (20-char random password — meets TYPO3 password policy)
+- Redis: `requirepass` enabled (20-char random password)
 
 All credentials are written to `/var/www/typo3/install-log-please-remove.log` (mode 600).
 
