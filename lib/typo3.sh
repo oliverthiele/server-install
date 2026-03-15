@@ -431,7 +431,6 @@ EOPHP
     --dbname="${databaseName}" \
     --username="${databaseUser}" \
     --password="${databasePassword}" \
-    --use-existing-database \
     --admin-user-name="typo3-admin" \
     --admin-user-password="${systemPass}" \
     --project-name="TYPO3 CMS" \

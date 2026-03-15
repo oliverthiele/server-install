@@ -25,7 +25,7 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 # Detect active PHP-FPM pool config
-POOL_CONF=$(ls /etc/php/*/fpm/pool.d/www.conf 2>/dev/null | head -1)
+POOL_CONF=$(find /etc/php/ -maxdepth 4 -name "www.conf" -path "*/fpm/pool.d/*" 2>/dev/null | head -1)
 if [ -z "${POOL_CONF}" ]; then
   die "No PHP-FPM pool config found under /etc/php/*/fpm/pool.d/www.conf"
 fi

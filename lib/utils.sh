@@ -137,7 +137,7 @@ checkPrerequisites() {
 
   if systemctl is-active nginx > /dev/null 2>&1; then
     local active_sites
-    active_sites=$(ls /etc/nginx/sites-enabled/ 2>/dev/null | grep -v "^$" | wc -l)
+    active_sites=$(find /etc/nginx/sites-enabled/ -maxdepth 1 -mindepth 1 2>/dev/null | wc -l)
     if [ "${active_sites}" -gt 0 ]; then
       _pf_warn "Nginx is running with ${active_sites} active site(s) — this installer will overwrite the site configuration"
     else
@@ -196,16 +196,16 @@ getUbuntuVersionAndSetPhpVersion() {
   echo "  1) PHP ${defaultPhpVersion} (default, from Ubuntu repositories)"
 
   if [[ "${ubuntuVersion}" == "24.04" ]]; then
-    echo "  2) PHP 8.4 (requires ondrej/php PPA, includes current php-redis)"
-    read -rp 'Option [1]: ' phpChoice
+    echo "  2) PHP 8.4 (default, requires ondrej/php PPA, includes current php-redis)"
+    read -rp 'Option [2]: ' phpChoice
     case "${phpChoice}" in
-    2)
-      phpVersion='8.4'
-      requiresPhpPpa='true'
-      ;;
-    *)
+    1)
       phpVersion="${defaultPhpVersion}"
       requiresPhpPpa='false'
+      ;;
+    *)
+      phpVersion='8.4'
+      requiresPhpPpa='true'
       ;;
     esac
   else

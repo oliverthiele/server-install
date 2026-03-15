@@ -11,21 +11,17 @@ setVariables() {
   # TYPO3 Version Selection
   echo "Select the TYPO3 version to be installed:"
   echo "  1) TYPO3 v12.4 LTS"
-  echo "  2) TYPO3 v13.4 LTS"
-  read -rp 'Option: ' typo3Option
+  echo "  2) TYPO3 v13.4 LTS (default)"
+  read -rp 'Option [2]: ' typo3Option
 
   case ${typo3Option} in
   1)
     typo3Version='^12.4'
     typo3MajorVersion='12'
     ;;
-  2)
+  *)
     typo3Version='^13.4'
     typo3MajorVersion='13'
-    ;;
-  *)
-    echo "Invalid option!"
-    exit 1
     ;;
   esac
 
