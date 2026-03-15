@@ -40,6 +40,7 @@ PATH_ADDITIONAL_SETTINGS="${pathAdditionalSettings}"
 # Domain & Email
 SERVER_DOMAIN="${serverDomain}"
 ADMIN_EMAIL="${adminEmail}"
+ADMIN_REAL_NAME="${adminRealName:-}"
 BOT_FILTER_MODE="${botFilterMode}"
 
 # System Password
@@ -75,6 +76,7 @@ loadConfig() {
     pathAdditionalSettings="${PATH_ADDITIONAL_SETTINGS}"
     serverDomain="${SERVER_DOMAIN}"
     adminEmail="${ADMIN_EMAIL}"
+    adminRealName="${ADMIN_REAL_NAME:-}"
     botFilterMode="${BOT_FILTER_MODE:-production}"
     systemPass="${SYSTEM_PASS}"
     databaseUser="${DATABASE_USER}"
@@ -88,7 +90,7 @@ loadConfig() {
     export ubuntuVersion phpVersion requiresPhpPpa typo3Version typo3CliName
     export wwwRoot composerDirectory typo3PublicDirectory
     export pathSettings pathAdditionalSettings
-    export serverDomain adminEmail botFilterMode systemPass
+    export serverDomain adminEmail adminRealName botFilterMode systemPass
     export databaseUser databasePassword databaseName databaseHost encryptionKey redisPassword
 
     # Also export path to php.ini for PHP configuration

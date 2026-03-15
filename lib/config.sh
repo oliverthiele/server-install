@@ -49,12 +49,17 @@ setVariables() {
 
   # Administrator Email
   echo "---------------------------------------"
-  read -rp 'Enter administrator email (for Certbot, TYPO3, Monit): ' adminEmail
+  read -rp 'Enter administrator email (for Certbot and TYPO3 backend user): ' adminEmail
   while [[ ! "${adminEmail}" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; do
     echo "Invalid email format!"
     read -rp 'Enter administrator email: ' adminEmail
   done
   echo "Admin Email: ${adminEmail}"
+  echo ""
+
+  # TYPO3 backend admin real name (stored in be_users.realName)
+  echo "---------------------------------------"
+  read -rp 'Enter TYPO3 admin real name (e.g. "Jane Doe") [leave empty to skip]: ' adminRealName
   echo ""
 
   # Bot filter mode
@@ -81,5 +86,5 @@ setVariables() {
   export wwwRoot composerDirectory typo3PublicDirectory
   export typo3Version typo3MajorVersion typo3CliName
   export pathSettings pathAdditionalSettings systemPass
-  export serverDomain adminEmail botFilterMode
+  export serverDomain adminEmail adminRealName botFilterMode
 }

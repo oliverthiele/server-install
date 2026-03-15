@@ -449,10 +449,14 @@ EOPHP
       rm "${typo3PublicDirectory}/FIRST_INSTALL"
       echo -e "${COLOR_GREEN}INFO FIRST_INSTALL removed${COLOR_NC}"
     fi
-    # Set admin email in the database (--admin-email sets it during setup, this ensures it is correct)
+    # Set admin email and real name in the database
+    local realNameSql=""
+    if [[ -n "${adminRealName:-}" ]]; then
+      realNameSql=", realName = '${adminRealName}'"
+    fi
     mysql -u"${databaseUser}" -p"${databasePassword}" "${databaseName}" \
-      -e "UPDATE be_users SET email = '${adminEmail}' WHERE username = 'typo3-admin';" \
-      || warn "Could not update BE user email — set manually in TYPO3 backend"
+      -e "UPDATE be_users SET email = '${adminEmail}'${realNameSql} WHERE username = 'typo3-admin';" \
+      || warn "Could not update BE user — set email/name manually in TYPO3 backend"
   else
     echo ""
     echo -e "${COLOR_YELLOW}${COLOR_BOLD}WARN Automated TYPO3 setup failed.${COLOR_NC}"
