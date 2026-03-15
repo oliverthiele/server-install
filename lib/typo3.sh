@@ -250,6 +250,12 @@ $GLOBALS['TYPO3_CONF_VARS']['SYS']['fileCreateMask'] = '0660';
 $GLOBALS['TYPO3_CONF_VARS']['SYS']['UTF8filesystem'] = 'en_US.UTF-8';
 $GLOBALS['TYPO3_CONF_VARS']['SYS']['systemLocale'] = 'en_US.UTF-8';
 
+// Image processing: use ImageMagick (supports AVIF via libheif; GraphicsMagick does not)
+$GLOBALS['TYPO3_CONF_VARS']['GFX']['processor_enabled'] = true;
+$GLOBALS['TYPO3_CONF_VARS']['GFX']['processor_path'] = '/usr/bin/';
+$GLOBALS['TYPO3_CONF_VARS']['GFX']['processor'] = 'ImageMagick';
+$GLOBALS['TYPO3_CONF_VARS']['GFX']['processor_effects'] = true;
+
 // Set trustedHostsPattern from DOMAIN if available
 $domain = $_ENV['DOMAIN'] ?? getenv('DOMAIN') ?: '';
 if (!$domain || $domain === '_') {

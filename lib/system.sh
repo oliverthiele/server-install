@@ -22,10 +22,17 @@ installSoftware() {
     addPhpPpa
   fi
 
+  # Install AVIF shared library before php-gd so GD AVIF support is available at runtime.
+  # Package name varies by Ubuntu version; silently skipped if unavailable (e.g. 20.04).
+  case "${ubuntuVersion}" in
+    24.04) apt --assume-yes install libavif16 ;;
+    22.04) apt --assume-yes install libavif13 ;;
+  esac
+
   apt --assume-yes install nginx-full apache2-utils \
     "php${phpVersion}"-{fpm,cli,common,curl,zip,gd,mysql,xml,mbstring,intl,yaml,opcache,soap,apcu} \
     redis-server mariadb-server \
-    graphicsmagick ghostscript git tig zip unzip catdoc argon2 file zsh zsh-syntax-highlighting \
+    imagemagick libheif1 ghostscript git tig zip unzip catdoc argon2 file zsh zsh-syntax-highlighting \
     dos2unix jq webp brotli \
     update-notifier-common
 
