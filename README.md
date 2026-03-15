@@ -134,7 +134,7 @@ server-install/
             ├── caching.nginx           # Browser caching rules
             ├── typo3-rewrite.nginx     # TYPO3 URL rewrites
             ├── method-filter.nginx     # HTTP method filtering
-            ├── monit.nginx             # Monit web interface proxy
+            ├── monit.nginx             # Example: reverse proxy for a local web UI (e.g. Monit on :2812)
             └── BasicAuth.nginx         # Basic auth with IP whitelist
 ```
 

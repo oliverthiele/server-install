@@ -181,10 +181,10 @@ EOL
   # Set ownership
   chown www-data:www-data /var/www/typo3/.env*
 
-  # Create settings directory
-  mkdir -p "${pathSettings}"
+  # Create settings directory as www-data to preserve ownership from Composer install
+  sudo -u www-data mkdir -p "${pathSettings}"
 
-  # Create additional.php configuration1
+  # Create additional.php configuration
   cat >"${pathAdditionalSettings}" <<'EOPHP'
 <?php
 
