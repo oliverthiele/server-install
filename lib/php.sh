@@ -14,14 +14,14 @@ installPhpRedis() {
   if [[ "${requiresPhpPpa}" == 'true' ]]; then
     # ondrej/php PPA provides up-to-date php-redis packages for all PHP versions
     echo "INFO Installing php${phpVersion}-redis via ondrej/php PPA"
-    apt --assume-yes install php${phpVersion}-redis
-    service php${phpVersion}-fpm restart
+    apt --assume-yes install "php${phpVersion}-redis"
+    service "php${phpVersion}-fpm" restart
   elif [[ "${phpVersion}" == "8.3" && "${ubuntuVersion}" == "24.04" ]]; then
     # For PHP 8.3 on Ubuntu 24.04, the apt package php-redis is outdated
     # Use pecl for TYPO3 v13 compatibility
     echo "INFO Installing php-redis via pecl for PHP 8.3 (TYPO3 v13 compatibility)"
 
-    apt --assume-yes install php${phpVersion}-dev php-pear
+    apt --assume-yes install "php${phpVersion}-dev" php-pear
 
     if pecl list | grep -q "^redis"; then
       echo "INFO pecl redis package already installed, skipping installation"
@@ -30,17 +30,17 @@ installPhpRedis() {
     fi
 
     # Enable redis extension (idempotent - won't fail if already exists)
-    if [ ! -f /etc/php/${phpVersion}/mods-available/redis.ini ]; then
-      echo "extension=redis.so" >/etc/php/${phpVersion}/mods-available/redis.ini
+    if [ ! -f "/etc/php/${phpVersion}/mods-available/redis.ini" ]; then
+      echo "extension=redis.so" >"/etc/php/${phpVersion}/mods-available/redis.ini"
     fi
     phpenmod redis
 
-    service php${phpVersion}-fpm restart
+    service "php${phpVersion}-fpm" restart
     echo "INFO php-redis installed via pecl successfully"
   else
     # For older Ubuntu versions, use the standard apt package
     apt --assume-yes install php-redis
-    service php${phpVersion}-fpm restart
+    service "php${phpVersion}-fpm" restart
   fi
 }
 
@@ -103,5 +103,5 @@ optimizePhpSettings() {
     echo "request_slowlog_timeout = 2s" >> "${fpmPoolConfig}"
   fi
 
-  service php${phpVersion}-fpm restart
+  service "php${phpVersion}-fpm" restart
 }

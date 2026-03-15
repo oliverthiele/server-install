@@ -23,7 +23,7 @@ installSoftware() {
   fi
 
   apt --assume-yes install nginx-full apache2-utils \
-    php${phpVersion}-{fpm,cli,common,curl,zip,gd,mysql,xml,mbstring,intl,yaml,opcache,soap,apcu} \
+    "php${phpVersion}"-{fpm,cli,common,curl,zip,gd,mysql,xml,mbstring,intl,yaml,opcache,soap,apcu} \
     redis-server mariadb-server \
     graphicsmagick ghostscript git tig zip unzip catdoc argon2 file zsh zsh-syntax-highlighting \
     dos2unix jq webp brotli \
@@ -31,7 +31,7 @@ installSoftware() {
 
   if [[ "${requiresPhpPpa}" == 'true' ]]; then
     echo "INFO Setting PHP ${phpVersion} as default CLI via update-alternatives"
-    update-alternatives --set php /usr/bin/php${phpVersion}
+    update-alternatives --set php "/usr/bin/php${phpVersion}"
   fi
 
   if [[ "${ubuntuVersion}" =~ ^20.04$|^22.04$|^24.04$ ]]; then

@@ -48,7 +48,7 @@ enable_slowlog() {
   else
     echo "request_slowlog_timeout = 2s" >> "${POOL_CONF}"
   fi
-  systemctl reload php${PHP_VERSION}-fpm
+  systemctl reload "php${PHP_VERSION}-fpm"
   echo "INFO Slow log enabled (threshold: 2s, log: ${SLOW_LOG})"
 }
 
@@ -56,7 +56,7 @@ disable_slowlog() {
   if grep -qE "^request_slowlog_timeout\s*=" "${POOL_CONF}"; then
     sed -i "s|^request_slowlog_timeout\s*=.*|request_slowlog_timeout = 0|" "${POOL_CONF}"
   fi
-  systemctl reload php${PHP_VERSION}-fpm
+  systemctl reload "php${PHP_VERSION}-fpm"
   echo "INFO Slow log disabled"
 }
 
