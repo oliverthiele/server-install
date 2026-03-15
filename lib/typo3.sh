@@ -450,12 +450,15 @@ EOPHP
       echo -e "${COLOR_GREEN}INFO FIRST_INSTALL removed${COLOR_NC}"
     fi
     # Set admin email and real name in the database
+    # Escape single quotes for MySQL string literals (' → '') to prevent SQL injection
+    local safeEmail="${adminEmail//\'/\'\'}"
     local realNameSql=""
     if [[ -n "${adminRealName:-}" ]]; then
-      realNameSql=", realName = '${adminRealName}'"
+      local safeRealName="${adminRealName//\'/\'\'}"
+      realNameSql=", realName = '${safeRealName}'"
     fi
     mysql -u"${databaseUser}" -p"${databasePassword}" "${databaseName}" \
-      -e "UPDATE be_users SET email = '${adminEmail}'${realNameSql} WHERE username = 'typo3-admin';" \
+      -e "UPDATE be_users SET email = '${safeEmail}'${realNameSql} WHERE username = 'typo3-admin';" \
       || warn "Could not update BE user — set email/name manually in TYPO3 backend"
   else
     echo ""
