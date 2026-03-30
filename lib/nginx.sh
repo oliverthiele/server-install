@@ -334,6 +334,37 @@ server {
         }
     }
 
+    # ── Security: deny sensitive files and directories ────────────────────────
+    # Composer metadata — never in public/ for Composer installs, but protects
+    # during migrations where a legacy install may exist temporarily.
+    location ~* composer\.(?:json|lock)$                         { deny all; }
+
+    # TYPO3 configuration files that must never be publicly accessible
+    location ~* flexform[^.]*\.xml$                              { deny all; }
+    location ~* locallang[^.]*\.(?:xml|xlf)$                    { deny all; }
+    location ~* ext_conf_template\.txt$                          { deny all; }
+    location ~* ext_typoscript_.*\.txt$                          { deny all; }
+
+    # Sensitive file extensions (config, logs, SQL dumps, TypeScript source maps, etc.)
+    location ~* \.(?:bak|co?nf|cfg|ya?ml|ts|typoscript|tsconfig|dist|fla|in[ci]|log|sh|sql|sqlite)$ {
+        deny all;
+    }
+
+    # TYPO3 temp directory (alongside recycler which is handled inside fileadmin)
+    location ~ _temp_/                                           { deny all; }
+
+    # Extension private files: Configuration, Resources/Private, Tests, docs
+    location ~ (?:typo3/sysext|typo3/ext)/[^/]+/(?:Configuration|Resources/Private|Tests?|docs?)/ {
+        deny all;
+    }
+
+    # Vendor directory at webroot level.
+    # In Composer installations, vendor/ is outside public/ and never matched here.
+    # This rule protects against accidentally exposed vendor/ during legacy migrations.
+    # NOTE: Does NOT block nested vendor/ paths (e.g. Resources/Public/vendor/bootstrap/)
+    # which are served via /_assets/ in TYPO3 v12+ and never match this pattern.
+    location ~ ^/vendor/                                         { deny all; }
+
     # PHP-FPM configuration
     location ~ \.php$ {
         fastcgi_split_path_info ^(.+\.php)(/.+)$;
