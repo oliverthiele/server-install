@@ -2,6 +2,11 @@
 
 # PHP configuration and optimization
 
+# Load central PHP settings
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../config/php-settings.sh
+source "${SCRIPT_DIR}/../config/php-settings.sh"
+
 installPhpRedis() {
   echo "INFO Install/Configure php-redis"
 
@@ -61,22 +66,22 @@ optimizePhpSettings() {
     fi
   }
 
-  set_php_ini_value "max_execution_time"          "240"     "${pathToPhpIni}"
-  set_php_ini_value "max_input_time"              "120"     "${pathToPhpIni}"
-  set_php_ini_value "max_input_vars"              "10000"   "${pathToPhpIni}"
-  set_php_ini_value "memory_limit"                "256M"    "${pathToPhpIni}"
-  set_php_ini_value "post_max_size"               "200M"    "${pathToPhpIni}"
-  set_php_ini_value "upload_max_filesize"         "200M"    "${pathToPhpIni}"
-  set_php_ini_value "max_file_uploads"            "200"     "${pathToPhpIni}"
+  set_php_ini_value "max_execution_time"          "${PHP_MAX_EXECUTION_TIME}"          "${pathToPhpIni}"
+  set_php_ini_value "max_input_time"              "${PHP_MAX_INPUT_TIME}"              "${pathToPhpIni}"
+  set_php_ini_value "max_input_vars"              "${PHP_MAX_INPUT_VARS}"              "${pathToPhpIni}"
+  set_php_ini_value "memory_limit"                "${PHP_MEMORY_LIMIT}"                "${pathToPhpIni}"
+  set_php_ini_value "post_max_size"               "${PHP_POST_MAX_SIZE}"               "${pathToPhpIni}"
+  set_php_ini_value "upload_max_filesize"         "${PHP_UPLOAD_MAX_FILESIZE}"         "${pathToPhpIni}"
+  set_php_ini_value "max_file_uploads"            "${PHP_MAX_FILE_UPLOADS}"            "${pathToPhpIni}"
 
   # OPcache optimizations
-  set_php_ini_value "opcache.enable"                  "1"      "${pathToPhpIni}"
-  set_php_ini_value "opcache.memory_consumption"      "256"    "${pathToPhpIni}"
-  set_php_ini_value "opcache.interned_strings_buffer" "16"     "${pathToPhpIni}"
-  set_php_ini_value "opcache.max_accelerated_files"   "20000"  "${pathToPhpIni}"
-  set_php_ini_value "opcache.revalidate_freq"         "60"     "${pathToPhpIni}"
+  set_php_ini_value "opcache.enable"                  "${PHP_OPCACHE_ENABLE}"                  "${pathToPhpIni}"
+  set_php_ini_value "opcache.memory_consumption"      "${PHP_OPCACHE_MEMORY_CONSUMPTION}"      "${pathToPhpIni}"
+  set_php_ini_value "opcache.interned_strings_buffer" "${PHP_OPCACHE_INTERNED_STRINGS_BUFFER}" "${pathToPhpIni}"
+  set_php_ini_value "opcache.max_accelerated_files"   "${PHP_OPCACHE_MAX_ACCELERATED_FILES}"   "${pathToPhpIni}"
+  set_php_ini_value "opcache.revalidate_freq"         "${PHP_OPCACHE_REVALIDATE_FREQ}"         "${pathToPhpIni}"
 
-  # PHP-FPM slow log: records requests exceeding 2s.
+  # PHP-FPM slow log: records requests exceeding the configured threshold.
   # Has no overhead for fast requests — only a time check at request end.
   # Toggle on/off anytime with: bin/toggle-php-slowlog.sh
   if grep -qE "^[;[:space:]]*slowlog\s*=" "${fpmPoolConfig}"; then
@@ -85,9 +90,9 @@ optimizePhpSettings() {
     echo "slowlog = /var/log/php${phpVersion}-fpm-slow.log" >> "${fpmPoolConfig}"
   fi
   if grep -qE "^[;[:space:]]*request_slowlog_timeout\s*=" "${fpmPoolConfig}"; then
-    sed -i "s|^[;[:space:]]*request_slowlog_timeout\s*=.*|request_slowlog_timeout = 2s|" "${fpmPoolConfig}"
+    sed -i "s|^[;[:space:]]*request_slowlog_timeout\s*=.*|request_slowlog_timeout = ${PHP_FPM_SLOW_LOG_TIMEOUT}|" "${fpmPoolConfig}"
   else
-    echo "request_slowlog_timeout = 2s" >> "${fpmPoolConfig}"
+    echo "request_slowlog_timeout = ${PHP_FPM_SLOW_LOG_TIMEOUT}" >> "${fpmPoolConfig}"
   fi
 
   "/usr/sbin/php-fpm${phpVersion}" --test || die "PHP-FPM config invalid — not restarting (check /etc/php/${phpVersion}/fpm/pool.d/www.conf)"
