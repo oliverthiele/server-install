@@ -125,6 +125,7 @@ for version in "${PHP_VERSIONS[@]}"; do
   fi
 
   echo "  php.ini: ${phpIni}"
+  set_php_ini_value "pcre.jit"                    "${PHP_PCRE_JIT}"                            "${phpIni}"
   set_php_ini_value "max_execution_time"          "${PHP_MAX_EXECUTION_TIME}"                  "${phpIni}"
   set_php_ini_value "max_input_time"              "${PHP_MAX_INPUT_TIME}"                      "${phpIni}"
   set_php_ini_value "max_input_vars"              "${PHP_MAX_INPUT_VARS}"                      "${phpIni}"

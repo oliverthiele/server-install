@@ -344,6 +344,14 @@ server {
         fastcgi_index index.php;
         include fastcgi.conf;
 
+        # Buffer sizes recommended by TYPO3 documentation
+        fastcgi_buffer_size 32k;
+        fastcgi_buffers 8 16k;
+
+        fastcgi_connect_timeout 240s;
+        fastcgi_read_timeout    240s;
+        fastcgi_send_timeout    240s;
+
         # TYPO3 Context (adjust as needed)
         fastcgi_param TYPO3_CONTEXT Development;
         #fastcgi_param TYPO3_CONTEXT Production/Staging;

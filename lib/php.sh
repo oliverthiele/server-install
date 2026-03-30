@@ -66,6 +66,7 @@ optimizePhpSettings() {
     fi
   }
 
+  set_php_ini_value "pcre.jit"                    "${PHP_PCRE_JIT}"                    "${pathToPhpIni}"
   set_php_ini_value "max_execution_time"          "${PHP_MAX_EXECUTION_TIME}"          "${pathToPhpIni}"
   set_php_ini_value "max_input_time"              "${PHP_MAX_INPUT_TIME}"              "${pathToPhpIni}"
   set_php_ini_value "max_input_vars"              "${PHP_MAX_INPUT_VARS}"              "${pathToPhpIni}"
