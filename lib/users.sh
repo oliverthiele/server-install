@@ -87,6 +87,12 @@ finish() {
 ## Redis
     Password: ${redisPassword:-not configured}
 
+## HTTP Basic Authentication
+    Enabled:  ${enableBasicAuth:-false}
+    User:     ${basicAuthUser:-n/a}
+    Password: ${basicAuthPassword:-n/a}
+    Disable:  Comment out BasicAuth.nginx include in /etc/nginx/sites-available/typo3.nginx
+
 ## Server
     IP:     ${ipAddress}
     Domain: ${serverDomain}
@@ -138,6 +144,12 @@ printNextSteps() {
   echo -e "DB password:    ${COLOR_BOLD}${databasePassword}${COLOR_NC}"
   if [ -n "${redisPassword:-}" ]; then
     echo -e "Redis password: ${COLOR_BOLD}${redisPassword}${COLOR_NC}"
+  fi
+  if [[ "${enableBasicAuth:-false}" == 'true' ]]; then
+    echo ""
+    echo -e "BasicAuth user:     ${COLOR_BOLD}${basicAuthUser}${COLOR_NC}"
+    echo -e "BasicAuth password: ${COLOR_BOLD}${basicAuthPassword}${COLOR_NC}"
+    echo    "Disable after go-live: comment out BasicAuth include in typo3.nginx"
   fi
   echo ""
   echo -e "Setup:  ${setupStatusColor}${setupStatus}${COLOR_NC}"

@@ -244,6 +244,14 @@ EOL
     rm /etc/nginx/sites-enabled/default
   fi
 
+  # Prepare conditional BasicAuth snippet include
+  local basicAuthInclude
+  if [[ "${enableBasicAuth:-false}" == 'true' ]]; then
+    basicAuthInclude="include /etc/nginx/snippets/BasicAuth.nginx;"
+  else
+    basicAuthInclude="# include /etc/nginx/snippets/BasicAuth.nginx;"
+  fi
+
   # Create TYPO3 site configuration
   cat >/etc/nginx/sites-available/typo3.nginx <<EOL
 # Default HTTP server: reject requests with unknown Host headers
@@ -287,15 +295,14 @@ server {
     include /etc/nginx/snippets/typo3-rewrite.nginx;
     include /etc/nginx/snippets/method-filter.nginx;
 
+    # HTTP Basic Authentication (disable after go-live: comment out and reload nginx)
+    ${basicAuthInclude}
+
     # Monit Web Interface (uncomment if Monit is installed)
     # include /etc/nginx/snippets/monit.nginx;
 
     # Main location
     location / {
-        # Uncomment for basic auth during development
-        # auth_basic "Restricted";
-        # auth_basic_user_file /var/www/typo3/.htpasswd;
-
         try_files \$uri \$uri/ /index.php?\$args;
     }
 
@@ -411,8 +418,25 @@ EOL
 
   ln -sfT /etc/nginx/sites-available/typo3.nginx /etc/nginx/sites-enabled/typo3.nginx
 
+  # Create .htpasswd before nginx -t so the include does not cause a config error
+  setupBasicAuth
+
   # Test nginx configuration
   nginx -t
 
   service nginx restart
+}
+
+setupBasicAuth() {
+  if [[ "${enableBasicAuth:-false}" != 'true' ]]; then
+    return 0
+  fi
+
+  echo "INFO Setting up HTTP Basic Authentication"
+  htpasswd -bc /var/www/typo3/.htpasswd "${basicAuthUser}" "${basicAuthPassword}" \
+    || die "Failed to create .htpasswd — check that apache2-utils is installed"
+
+  chown www-data:www-data /var/www/typo3/.htpasswd
+  chmod 640 /var/www/typo3/.htpasswd
+  echo "INFO .htpasswd created for user '${basicAuthUser}'"
 }

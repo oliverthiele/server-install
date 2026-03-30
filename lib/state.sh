@@ -43,6 +43,9 @@ SERVER_DOMAIN="${serverDomain}"
 ADMIN_EMAIL="${adminEmail}"
 ADMIN_REAL_NAME="${adminRealName:-}"
 BOT_FILTER_MODE="${botFilterMode}"
+ENABLE_BASIC_AUTH="${enableBasicAuth:-false}"
+BASIC_AUTH_USER="${basicAuthUser:-}"
+BASIC_AUTH_PASSWORD="${basicAuthPassword:-}"
 
 # System Password
 SYSTEM_PASS="${systemPass}"
@@ -89,6 +92,9 @@ loadConfig() {
     adminEmail="${ADMIN_EMAIL}"
     adminRealName="${ADMIN_REAL_NAME:-}"
     botFilterMode="${BOT_FILTER_MODE:-production}"
+    enableBasicAuth="${ENABLE_BASIC_AUTH:-false}"
+    basicAuthUser="${BASIC_AUTH_USER:-}"
+    basicAuthPassword="${BASIC_AUTH_PASSWORD:-}"
     systemPass="${SYSTEM_PASS}"
     databaseUser="${DATABASE_USER}"
     databasePassword="${DATABASE_PASSWORD}"
@@ -102,6 +108,7 @@ loadConfig() {
     export wwwRoot composerDirectory typo3PublicDirectory
     export pathSettings pathAdditionalSettings
     export serverDomain adminEmail adminRealName botFilterMode systemPass
+    export enableBasicAuth basicAuthUser basicAuthPassword
     export databaseUser databasePassword databaseName databaseHost encryptionKey redisPassword
 
     # Also export path to php.ini for PHP configuration

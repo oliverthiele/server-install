@@ -114,8 +114,31 @@ setVariables() {
   esac
   echo ""
 
+  # HTTP Basic Authentication (optional, recommended until go-live)
+  echo "---------------------------------------"
+  echo "Enable HTTP Basic Authentication?"
+  echo "  Protects the site with a username/password until it goes live."
+  echo "  Trusted private networks (10.x, 172.16.x, 192.168.x) bypass the password."
+  read -rp "Enable BasicAuth? [y/N]: " basicAuthOption
+  if [[ "${basicAuthOption}" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+    enableBasicAuth='true'
+    read -rp "BasicAuth username [admin]: " basicAuthUser
+    if [[ -z "${basicAuthUser}" ]]; then
+      basicAuthUser='admin'
+    fi
+    basicAuthPassword=$(generatePassword)
+    echo "BasicAuth enabled — Username: ${basicAuthUser}"
+  else
+    enableBasicAuth='false'
+    basicAuthUser=''
+    basicAuthPassword=''
+    echo "BasicAuth disabled."
+  fi
+  echo ""
+
   # Export variables for use in other modules
   export wwwRoot composerDirectory typo3PublicDirectory
   export typo3CliName pathSettings pathAdditionalSettings systemPass
   export serverDomain adminEmail adminRealName botFilterMode
+  export enableBasicAuth basicAuthUser basicAuthPassword
 }
