@@ -28,6 +28,7 @@ REQUIRES_PHP_PPA="${requiresPhpPpa}"
 
 # TYPO3
 TYPO3_VERSION="${typo3Version}"
+TYPO3_MAJOR_VERSION="${typo3MajorVersion}"
 TYPO3_CLI_NAME="${typo3CliName}"
 
 # Paths
@@ -68,7 +69,17 @@ loadConfig() {
     phpVersion="${PHP_VERSION}"
     requiresPhpPpa="${REQUIRES_PHP_PPA}"
     typo3Version="${TYPO3_VERSION}"
+    typo3MajorVersion="${TYPO3_MAJOR_VERSION}"
     typo3CliName="${TYPO3_CLI_NAME}"
+
+    # Re-source TYPO3 requirements so PHP version constraints are available after resume
+    local requirementsFile
+    requirementsFile="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../config/requirements/typo3-v${typo3MajorVersion}.sh"
+    if [ -f "${requirementsFile}" ]; then
+      # shellcheck source=../config/requirements/typo3-v13.sh
+      source "${requirementsFile}"
+      export TYPO3_PHP_MIN TYPO3_PHP_MAX TYPO3_PHP_RECOMMENDED TYPO3_PHP_WARN_BELOW TYPO3_PHP_WARN_MSG
+    fi
     wwwRoot="${WWW_ROOT}"
     composerDirectory="${COMPOSER_DIRECTORY}"
     typo3PublicDirectory="${TYPO3_PUBLIC_DIRECTORY}"
@@ -87,7 +98,7 @@ loadConfig() {
     redisPassword="${REDIS_PASS}"
 
     # Export variables for use in other scripts
-    export ubuntuVersion phpVersion requiresPhpPpa typo3Version typo3CliName
+    export ubuntuVersion phpVersion requiresPhpPpa typo3Version typo3MajorVersion typo3CliName
     export wwwRoot composerDirectory typo3PublicDirectory
     export pathSettings pathAdditionalSettings
     export serverDomain adminEmail adminRealName botFilterMode systemPass
