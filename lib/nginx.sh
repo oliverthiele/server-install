@@ -229,8 +229,8 @@ EOL
 
   # Copy snippets from repository to nginx snippets directory
   echo "INFO Copy Nginx snippets"
-  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-  cp -f "${SCRIPT_DIR}/config/nginx/snippets/"*.nginx /etc/nginx/snippets/
+  local scriptDirectoryNginx="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  cp -f "${scriptDirectoryNginx}/config/nginx/snippets/"*.nginx /etc/nginx/snippets/
 
   # Write bot-filter snippet based on selected mode
   writeBotFilterSnippet "${botFilterMode:-production}"

@@ -3,9 +3,9 @@
 # PHP configuration and optimization
 
 # Load central PHP settings
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR_PHP="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../config/php-settings.sh
-source "${SCRIPT_DIR}/../config/php-settings.sh"
+source "${SCRIPT_DIR_PHP}/../config/php-settings.sh"
 
 installPhpRedis() {
   echo "INFO Install/Configure php-redis"
