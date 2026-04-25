@@ -13,7 +13,7 @@ selectTypo3Version() {
   echo "Select the TYPO3 version to be installed:"
   echo "  1) TYPO3 v12.4 LTS"
   echo "  2) TYPO3 v13.4 LTS (default)"
-  echo "  3) TYPO3 v14.4 LTS"
+  echo "  3) TYPO3 v14.3 LTS"
   read -rp 'Option [2]: ' typo3Option
 
   case ${typo3Option} in
@@ -22,7 +22,7 @@ selectTypo3Version() {
     typo3MajorVersion='12'
     ;;
   3)
-    typo3Version='^14.4'
+    typo3Version='^14.3'
     typo3MajorVersion='14'
     ;;
   *)
