@@ -62,7 +62,7 @@ finish() {
     setupStatus="FIRST_INSTALL present — complete via web wizard"
   fi
 
-  cat > "${composerDirectory}install-log-please-remove.log" <<EOL
+  cat > "${composerDirectory}install-log-please-remove.md" <<EOL
 # TYPO3 Server Installation Log
 # Generated: $(date)
 # DELETE THIS FILE after noting credentials – mode 600, www-data only
@@ -105,11 +105,11 @@ finish() {
     1. certbot --nginx -d ${serverDomain} --email ${adminEmail}
     2. Set TYPO3_CONTEXT to Production in /etc/nginx/sites-available/typo3.nginx
     3. Configure SMTP in /var/www/typo3/.env
-    4. DELETE THIS FILE: rm ${composerDirectory}install-log-please-remove.log
+    4. DELETE THIS FILE: rm ${composerDirectory}install-log-please-remove.md
 EOL
 
-  chown www-data: "${composerDirectory}install-log-please-remove.log"
-  chmod 0600 "${composerDirectory}install-log-please-remove.log"
+  chown www-data: "${composerDirectory}install-log-please-remove.md"
+  chmod 0600 "${composerDirectory}install-log-please-remove.md"
 }
 
 printNextSteps() {
@@ -154,7 +154,7 @@ printNextSteps() {
   echo ""
   echo -e "Setup:  ${setupStatusColor}${setupStatus}${COLOR_NC}"
   echo ""
-  echo    "Credentials saved to: ${composerDirectory}install-log-please-remove.log"
+  echo    "Credentials saved to: ${composerDirectory}install-log-please-remove.md"
   echo -e "${COLOR_CYAN}${COLOR_BOLD}=======================================${COLOR_NC}"
 
   echo ""
@@ -196,7 +196,7 @@ printNextSteps() {
   step=$((step + 1))
 
   echo "  ${step}. Delete installation log after saving credentials:"
-  echo "     rm ${composerDirectory}install-log-please-remove.log"
+  echo "     rm ${composerDirectory}install-log-please-remove.md"
   echo ""
 
   echo "State files — delete once credentials are backed up:"

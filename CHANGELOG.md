@@ -94,7 +94,7 @@ in a single script run.
 - Config validated with `--test` before PHP-FPM restart
 
 **Post-install**
-- Credentials written to `/var/www/typo3/install-log-please-remove.log` (mode 600, www-data only)
+- Credentials written to `/var/www/typo3/install-log-please-remove.md` (mode 600, www-data only)
 - Colorized "INSTALLATION COMPLETE" summary with all credentials and numbered next steps
 - ShellCheck CI workflow (GitHub Actions)
 
