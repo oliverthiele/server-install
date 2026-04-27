@@ -186,6 +186,7 @@ set_sshd_option "X11Forwarding"                 "no"
 set_sshd_option "PermitEmptyPasswords"          "no"
 set_sshd_option "StrictModes"                   "yes"
 set_sshd_option "UsePAM"                        "yes"
+set_sshd_option "PrintMotd"                     "no"
 
 # Protocol 2 is the default in modern OpenSSH but make it explicit
 if ! grep -qE "^Protocol " "${SSHD_CONFIG}"; then

@@ -75,6 +75,7 @@ hardenSSH() {
 
   # Keep PAM enabled (required for key-based auth on some systems)
   sed -i 's|^#*[[:space:]]*UsePAM[[:space:]].*|UsePAM yes|' /etc/ssh/sshd_config
+  sed -i 's|^#*[[:space:]]*PrintMotd[[:space:]].*|PrintMotd no|' /etc/ssh/sshd_config
 
   # Allow root login via key only
   sed -i 's|^#*[[:space:]]*PermitRootLogin[[:space:]].*|PermitRootLogin prohibit-password|' /etc/ssh/sshd_config
