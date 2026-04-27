@@ -30,7 +30,7 @@ installSoftware() {
   esac
 
   apt --assume-yes install nginx-full apache2-utils \
-    "php${phpVersion}"-{fpm,cli,common,curl,zip,gd,mysql,xml,mbstring,intl,yaml,opcache,soap,apcu} \
+    "php${phpVersion}"-{fpm,cli,common,curl,zip,gd,mysql,xml,mbstring,intl,yaml,opcache,soap,apcu,fileinfo} \
     redis-server mariadb-server \
     imagemagick libheif1 ghostscript git tig zip unzip catdoc argon2 file zsh zsh-syntax-highlighting \
     dos2unix jq webp brotli \

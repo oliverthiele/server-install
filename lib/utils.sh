@@ -206,7 +206,7 @@ getUbuntuVersionAndSetPhpVersion() {
   ubuntuVersion=$(lsb_release -rs)
   echo "Ubuntu: ${ubuntuVersion}"
 
-  # Determine default PHP version based on Ubuntu release
+  # Determine Ubuntu default PHP version
   case "${ubuntuVersion}" in
   '24.04') defaultPhpVersion='8.3' ;;
   '22.04') defaultPhpVersion='8.1' ;;
@@ -216,15 +216,26 @@ getUbuntuVersionAndSetPhpVersion() {
     ;;
   esac
 
-  # Ask user which PHP version to install
+  # Use recommended version from TYPO3 requirements if available, otherwise Ubuntu default
+  local recommendedPhpVersion="${TYPO3_PHP_RECOMMENDED:-${defaultPhpVersion}}"
+
   echo "---------------------------------------"
-  echo "Default PHP version for Ubuntu ${ubuntuVersion}: ${defaultPhpVersion}"
-  echo "Select PHP version to install:"
-  echo "  1) PHP ${defaultPhpVersion} (default, from Ubuntu repositories)"
+  echo "PHP version selection"
+  if [[ -n "${TYPO3_PHP_RECOMMENDED:-}" ]]; then
+    echo "  Recommended for TYPO3 v${typo3MajorVersion}: PHP ${TYPO3_PHP_RECOMMENDED}"
+    echo "  Supported range: PHP ${TYPO3_PHP_MIN} – ${TYPO3_PHP_MAX}"
+  fi
+  echo ""
 
   if [[ "${ubuntuVersion}" == "24.04" ]]; then
-    echo "  2) PHP 8.4 (default, requires ondrej/php PPA, includes current php-redis)"
-    read -rp 'Option [2]: ' phpChoice
+    echo "  1) PHP ${defaultPhpVersion} (Ubuntu default repository)"
+    echo "  2) PHP 8.4 (requires ondrej/php PPA)"
+    if [[ "${recommendedPhpVersion}" == "8.4" ]]; then
+      read -rp "Option [2]: " phpChoice
+    else
+      read -rp "Option [1]: " phpChoice
+    fi
+
     case "${phpChoice}" in
     1)
       phpVersion="${defaultPhpVersion}"
@@ -238,6 +249,21 @@ getUbuntuVersionAndSetPhpVersion() {
   else
     phpVersion="${defaultPhpVersion}"
     requiresPhpPpa='false'
+  fi
+
+  # Warn if selected version is below the recommended threshold
+  if [[ -n "${TYPO3_PHP_WARN_BELOW:-}" ]]; then
+    if [[ "$(echo "${phpVersion} ${TYPO3_PHP_WARN_BELOW}" | awk '{print ($1 < $2)}')" == "1" ]]; then
+      echo ""
+      echo -e "${COLOR_YELLOW}${COLOR_BOLD}WARN PHP ${phpVersion} is below the recommended minimum (${TYPO3_PHP_WARN_BELOW}).${COLOR_NC}"
+      echo -e "     ${TYPO3_PHP_WARN_MSG}"
+      echo ""
+      read -rp "Continue with PHP ${phpVersion} anyway? [y/N] " warnConfirm
+      if [[ ! "${warnConfirm}" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+        echo "Aborted. Re-run the installer and select PHP ${TYPO3_PHP_RECOMMENDED}."
+        exit 0
+      fi
+    fi
   fi
 
   pathToPhpIni="/etc/php/${phpVersion}/fpm/php.ini"

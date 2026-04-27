@@ -229,8 +229,8 @@ EOL
 
   # Copy snippets from repository to nginx snippets directory
   echo "INFO Copy Nginx snippets"
-  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-  cp -f "${SCRIPT_DIR}/config/nginx/snippets/"*.nginx /etc/nginx/snippets/
+  local scriptDirectoryNginx="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  cp -f "${scriptDirectoryNginx}/config/nginx/snippets/"*.nginx /etc/nginx/snippets/
 
   # Write bot-filter snippet based on selected mode
   writeBotFilterSnippet "${botFilterMode:-production}"
@@ -242,6 +242,14 @@ EOL
 
   if [ -L "/etc/nginx/sites-enabled/default" ]; then
     rm /etc/nginx/sites-enabled/default
+  fi
+
+  # Prepare conditional BasicAuth snippet include
+  local basicAuthInclude
+  if [[ "${enableBasicAuth:-false}" == 'true' ]]; then
+    basicAuthInclude="include /etc/nginx/snippets/BasicAuth.nginx;"
+  else
+    basicAuthInclude="# include /etc/nginx/snippets/BasicAuth.nginx;"
   fi
 
   # Create TYPO3 site configuration
@@ -287,15 +295,14 @@ server {
     include /etc/nginx/snippets/typo3-rewrite.nginx;
     include /etc/nginx/snippets/method-filter.nginx;
 
+    # HTTP Basic Authentication (disable after go-live: comment out and reload nginx)
+    ${basicAuthInclude}
+
     # Monit Web Interface (uncomment if Monit is installed)
     # include /etc/nginx/snippets/monit.nginx;
 
     # Main location
     location / {
-        # Uncomment for basic auth during development
-        # auth_basic "Restricted";
-        # auth_basic_user_file /var/www/typo3/.htpasswd;
-
         try_files \$uri \$uri/ /index.php?\$args;
     }
 
@@ -334,6 +341,37 @@ server {
         }
     }
 
+    # ── Security: deny sensitive files and directories ────────────────────────
+    # Composer metadata — never in public/ for Composer installs, but protects
+    # during migrations where a legacy install may exist temporarily.
+    location ~* composer\.(?:json|lock)$                         { deny all; }
+
+    # TYPO3 configuration files that must never be publicly accessible
+    location ~* flexform[^.]*\.xml$                              { deny all; }
+    location ~* locallang[^.]*\.(?:xml|xlf)$                    { deny all; }
+    location ~* ext_conf_template\.txt$                          { deny all; }
+    location ~* ext_typoscript_.*\.txt$                          { deny all; }
+
+    # Sensitive file extensions (config, logs, SQL dumps, TypeScript source maps, etc.)
+    location ~* \.(?:bak|co?nf|cfg|ya?ml|ts|typoscript|tsconfig|dist|fla|in[ci]|log|sh|sql|sqlite)$ {
+        deny all;
+    }
+
+    # TYPO3 temp directory (alongside recycler which is handled inside fileadmin)
+    location ~ _temp_/                                           { deny all; }
+
+    # Extension private files: Configuration, Resources/Private, Tests, docs
+    location ~ (?:typo3/sysext|typo3/ext)/[^/]+/(?:Configuration|Resources/Private|Tests?|docs?)/ {
+        deny all;
+    }
+
+    # Vendor directory at webroot level.
+    # In Composer installations, vendor/ is outside public/ and never matched here.
+    # This rule protects against accidentally exposed vendor/ during legacy migrations.
+    # NOTE: Does NOT block nested vendor/ paths (e.g. Resources/Public/vendor/bootstrap/)
+    # which are served via /_assets/ in TYPO3 v12+ and never match this pattern.
+    location ~ ^/vendor/                                         { deny all; }
+
     # PHP-FPM configuration
     location ~ \.php$ {
         fastcgi_split_path_info ^(.+\.php)(/.+)$;
@@ -343,6 +381,14 @@ server {
         fastcgi_param PATH_INFO \$path_info;
         fastcgi_index index.php;
         include fastcgi.conf;
+
+        # Buffer sizes recommended by TYPO3 documentation
+        fastcgi_buffer_size 32k;
+        fastcgi_buffers 8 16k;
+
+        fastcgi_connect_timeout 240s;
+        fastcgi_read_timeout    240s;
+        fastcgi_send_timeout    240s;
 
         # TYPO3 Context (adjust as needed)
         fastcgi_param TYPO3_CONTEXT Development;
@@ -372,8 +418,25 @@ EOL
 
   ln -sfT /etc/nginx/sites-available/typo3.nginx /etc/nginx/sites-enabled/typo3.nginx
 
+  # Create .htpasswd before nginx -t so the include does not cause a config error
+  setupBasicAuth
+
   # Test nginx configuration
   nginx -t
 
   service nginx restart
+}
+
+setupBasicAuth() {
+  if [[ "${enableBasicAuth:-false}" != 'true' ]]; then
+    return 0
+  fi
+
+  echo "INFO Setting up HTTP Basic Authentication"
+  htpasswd -bc /var/www/typo3/.htpasswd "${basicAuthUser}" "${basicAuthPassword}" \
+    || die "Failed to create .htpasswd — check that apache2-utils is installed"
+
+  chown www-data:www-data /var/www/typo3/.htpasswd
+  chmod 640 /var/www/typo3/.htpasswd
+  echo "INFO .htpasswd created for user '${basicAuthUser}'"
 }

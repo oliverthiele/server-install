@@ -2,22 +2,28 @@
 
 # Configuration variables and version selection
 
+SCRIPT_DIR_CONFIG="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # Default paths
 wwwRoot='/var/www/'
 composerDirectory="${wwwRoot}typo3/"
 typo3PublicDirectory="${composerDirectory}public/"
 
-setVariables() {
-  # TYPO3 Version Selection
+selectTypo3Version() {
   echo "Select the TYPO3 version to be installed:"
   echo "  1) TYPO3 v12.4 LTS"
   echo "  2) TYPO3 v13.4 LTS (default)"
+  echo "  3) TYPO3 v14.3 LTS"
   read -rp 'Option [2]: ' typo3Option
 
   case ${typo3Option} in
   1)
     typo3Version='^12.4'
     typo3MajorVersion='12'
+    ;;
+  3)
+    typo3Version='^14.3'
+    typo3MajorVersion='14'
     ;;
   *)
     typo3Version='^13.4'
@@ -26,8 +32,23 @@ setVariables() {
   esac
 
   echo "TYPO3 Version ${typo3Version}"
+  echo ""
 
-  # Set paths based on TYPO3 version (v12 and v13 use the same structure)
+  # Load PHP requirements for the selected TYPO3 version
+  local requirementsFile="${SCRIPT_DIR_CONFIG}/../config/requirements/typo3-v${typo3MajorVersion}.sh"
+  if [ -f "${requirementsFile}" ]; then
+    # shellcheck source=../config/requirements/typo3-v13.sh
+    source "${requirementsFile}"
+  else
+    warn "No requirements file found for TYPO3 v${typo3MajorVersion} — PHP version selection will use defaults"
+  fi
+
+  export typo3Version typo3MajorVersion
+  export TYPO3_PHP_MIN TYPO3_PHP_MAX TYPO3_PHP_RECOMMENDED TYPO3_PHP_WARN_BELOW TYPO3_PHP_WARN_MSG
+}
+
+setVariables() {
+  # Set paths (same structure for v12 and v13)
   pathSettings="${composerDirectory}config/system/"
   pathAdditionalSettings="${pathSettings}additional.php"
   typo3CliName='typo3'
@@ -93,9 +114,31 @@ setVariables() {
   esac
   echo ""
 
+  # HTTP Basic Authentication (optional, recommended until go-live)
+  echo "---------------------------------------"
+  echo "Enable HTTP Basic Authentication?"
+  echo "  Protects the site with a username/password until it goes live."
+  echo "  Trusted private networks (10.x, 172.16.x, 192.168.x) bypass the password."
+  read -rp "Enable BasicAuth? [y/N]: " basicAuthOption
+  if [[ "${basicAuthOption}" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+    enableBasicAuth='true'
+    read -rp "BasicAuth username [admin]: " basicAuthUser
+    if [[ -z "${basicAuthUser}" ]]; then
+      basicAuthUser='admin'
+    fi
+    basicAuthPassword=$(generatePassword)
+    echo "BasicAuth enabled — Username: ${basicAuthUser}"
+  else
+    enableBasicAuth='false'
+    basicAuthUser=''
+    basicAuthPassword=''
+    echo "BasicAuth disabled."
+  fi
+  echo ""
+
   # Export variables for use in other modules
   export wwwRoot composerDirectory typo3PublicDirectory
-  export typo3Version typo3MajorVersion typo3CliName
-  export pathSettings pathAdditionalSettings systemPass
+  export typo3CliName pathSettings pathAdditionalSettings systemPass
   export serverDomain adminEmail adminRealName botFilterMode
+  export enableBasicAuth basicAuthUser basicAuthPassword
 }

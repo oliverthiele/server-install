@@ -23,7 +23,7 @@
 Thumbs.db
 
 # Sensitive data
-install-log-please-remove.log
+install-log-please-remove.md
 authorized_keys
 
 # Old scripts

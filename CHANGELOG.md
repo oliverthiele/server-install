@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] — 2026-04-27
+
+### Added
+
+- TYPO3 v14 LTS support (released 2026-04-21)
+- `bin/add-php-version.sh`: install an additional PHP version alongside the existing one
+- Optional HTTP Basic Authentication during installation (staging protection)
+- TYPO3 version selection moved before PHP version selection to derive requirements correctly
+- PHP settings centralized in `config/php-settings.sh`
+
+### Changed
+
+- Install log file renamed from `install-log-please-remove.log` to `install-log-please-remove.md`
+  (file content uses Markdown syntax)
+- Script directory paths use local variables instead of repeated `dirname` calls
+- System requirements documentation aligned with TYPO3 official docs
+
+### Fixed
+
+- TYPO3 version corrected from `14.4` to `14.3` LTS
+- Missing MOTD after SSH hardening: `PrintMotd no` added to delegate MOTD display to PAM
+
+### Security
+
+- Missing TYPO3-recommended Nginx deny rules added (`.git`, `.env`, composer files, etc.)
+- `PrintMotd no` set explicitly in `sshd_config` to ensure PAM-managed dynamic MOTD is shown
+
+---
+
+## [1.0.1] — 2026-03-15
+
+### Changed
+
+- Redundant post-install summary block removed; admin real name input validation added
+
+### Fixed
+
+- Single quotes in admin email and real name escaped correctly in MariaDB `UPDATE` query
+
+---
+
 ## [1.0.0] — 2026-03-14
 
 Initial public release. A fully automated TYPO3 server installer for Ubuntu 20.04,
@@ -94,8 +135,10 @@ in a single script run.
 - Config validated with `--test` before PHP-FPM restart
 
 **Post-install**
-- Credentials written to `/var/www/typo3/install-log-please-remove.log` (mode 600, www-data only)
+- Credentials written to `/var/www/typo3/install-log-please-remove.md` (mode 600, www-data only)
 - Colorized "INSTALLATION COMPLETE" summary with all credentials and numbered next steps
 - ShellCheck CI workflow (GitHub Actions)
 
+[1.1.0]: https://github.com/oliverthiele/server-install/compare/v1.0.1...v1.1.0
+[1.0.1]: https://github.com/oliverthiele/server-install/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/oliverthiele/server-install/releases/tag/v1.0.0

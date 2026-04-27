@@ -92,7 +92,9 @@ else
 fi
 
 # Step 1: Detect system and set variables
+# Order matters: TYPO3 version first (loads PHP requirements), then PHP version selection
 if ! isStepComplete "system_detection"; then
+  selectTypo3Version
   getUbuntuVersionAndSetPhpVersion
   setVariables
   confirmInstallation

@@ -191,7 +191,7 @@ The installer creates:
 - Admin user: `typo3-admin` (20-char random password — meets TYPO3 password policy)
 - Redis: `requirepass` enabled (20-char random password)
 
-All credentials are written to `/var/www/typo3/install-log-please-remove.log` (mode 600).
+All credentials are written to `/var/www/typo3/install-log-please-remove.md` (mode 600).
 
 ### Automated Setup
 
@@ -441,8 +441,8 @@ nginx -t && systemctl reload nginx
 ### 4. Save and delete install log
 
 ```bash
-cat /var/www/typo3/install-log-please-remove.log
-rm /var/www/typo3/install-log-please-remove.log
+cat /var/www/typo3/install-log-please-remove.md
+rm /var/www/typo3/install-log-please-remove.md
 ```
 
 ### 5. Delete installation state files
