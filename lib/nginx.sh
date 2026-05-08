@@ -99,6 +99,78 @@ downloadNginxSource() {
   fi
 }
 
+writeTypo3RewriteSnippet() {
+  local targetFile="/etc/nginx/snippets/typo3-rewrite.nginx"
+
+  if [ "${typo3MajorVersion}" -ge 14 ]; then
+    echo "INFO Writing TYPO3 v14+ rewrite snippet"
+    cat >"${targetFile}" <<'EOF'
+# TYPO3 URL Rewrite Rules
+
+# TYPO3 v14+: public/typo3/index.php and install.php no longer exist.
+# All backend and install tool requests are routed through public/index.php.
+# Note: custom backend routes via config.yaml (backend.entryPoint) are supported.
+# This configuration assumes the default /typo3 route.
+
+location = /typo3 {
+    rewrite ^ /typo3/;
+}
+
+# Allow access to all public resources in TYPO3 backend
+location ~ ^/typo3/(.*/)?Resources/Public/ {
+    allow all;
+    break;
+}
+
+location /typo3/ {
+    # Uncomment for basic auth protection of backend
+    # include snippets/BasicAuth.nginx;
+    try_files $uri /index.php$is_args$args;
+}
+
+# versionNumberInFilename - aligned with TYPO3 core
+# Removes the timestamp from versioned files
+# Pattern: filename.1234567890.ext -> filename.ext
+# Supports: CSS, JS (including .mjs modules), images (including AVIF), fonts, JSON
+rewrite "^(.*)\.(\d{10})\.(css|js|mjs|png|jpg|jpeg|gif|svg|avif|webp|woff|woff2|ttf|eot|otf|json)$" $1.$3 last;
+EOF
+  else
+    echo "INFO Writing TYPO3 v12/v13 rewrite snippet"
+    cat >"${targetFile}" <<'EOF'
+# TYPO3 URL Rewrite Rules
+
+# TYPO3 v13 allows custom backend routes via config.yaml (backend.entryPoint)
+# This configuration assumes the default /typo3 route. Adjust if you use a custom backend path.
+
+# TYPO3 v11+ Backend URLs (default /typo3 route)
+location = /typo3 {
+    rewrite ^ /typo3/;
+}
+
+# Allow access to all public resources in TYPO3 backend
+location ~ ^/typo3/(.*/)?Resources/Public/ {
+    allow all;
+    break;
+}
+
+location /typo3/ {
+    # Uncomment for basic auth protection of backend
+    # include snippets/BasicAuth.nginx;
+    try_files $uri /typo3/index.php$is_args$args;
+}
+
+# Install tool redirect
+rewrite ^/typo3/install/$ /typo3/install.php permanent;
+
+# versionNumberInFilename - aligned with TYPO3 core
+# Removes the timestamp from versioned files
+# Pattern: filename.1234567890.ext -> filename.ext
+# Supports: CSS, JS (including .mjs modules), images (including AVIF), fonts, JSON
+rewrite "^(.*)\.(\d{10})\.(css|js|mjs|png|jpg|jpeg|gif|svg|avif|webp|woff|woff2|ttf|eot|otf|json)$" $1.$3 last;
+EOF
+  fi
+}
+
 compileNginxWithBrotli() {
   echo "INFO Compiling Nginx with Brotli module for version ${nginxVersion}"
 
@@ -232,6 +304,9 @@ EOL
   local scriptDirectoryNginx
   scriptDirectoryNginx="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
   cp -f "${scriptDirectoryNginx}/config/nginx/snippets/"*.nginx /etc/nginx/snippets/
+
+  # Write version-specific TYPO3 rewrite snippet
+  writeTypo3RewriteSnippet
 
   # Write bot-filter snippet based on selected mode
   writeBotFilterSnippet "${botFilterMode:-production}"

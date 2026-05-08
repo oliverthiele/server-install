@@ -1,6 +1,9 @@
-# TYPO3 URL Rewrite Rules
-
-# Note: TYPO3 v13 allows custom backend routes via config.yaml (backend.entryPoint)
+# TYPO3 URL Rewrite Rules (v12/v13)
+#
+# NOTE: This file is overwritten by writeTypo3RewriteSnippet() in lib/nginx.sh
+# during installation. For TYPO3 v14+, a different rewrite is generated.
+#
+# TYPO3 v13 allows custom backend routes via config.yaml (backend.entryPoint)
 # This configuration assumes the default /typo3 route. Adjust if you use a custom backend path.
 
 # TYPO3 v11+ Backend URLs (default /typo3 route)
