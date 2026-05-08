@@ -61,7 +61,8 @@ installTypo3() {
 
   # Add dev packages
   echo "INFO Installing dev dependencies"
-  sudo -u www-data sh -c "cd ${composerDirectory} && composer require --dev --no-interaction --with-all-dependencies typo3/coding-standards ssch/typo3-rector" || warn "Dev dependencies had issues, continuing..."
+  # typo3/coding-standards: dev-main until a new stable release beyond 0.8.0 is tagged
+  sudo -u www-data sh -c "cd ${composerDirectory} && composer require --dev --no-interaction --with-all-dependencies typo3/coding-standards:dev-main@dev ssch/typo3-rector" || warn "Dev dependencies had issues, continuing..."
 
   # Setup coding standards (only if typo3-coding-standards is installed)
   if [ -f "${composerDirectory}vendor/bin/typo3-coding-standards" ]; then
