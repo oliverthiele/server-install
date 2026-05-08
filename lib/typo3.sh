@@ -51,9 +51,13 @@ installTypo3() {
       typo3/cms-opendocs:${typo3Version} \
       typo3/cms-scheduler:${typo3Version}" || warn "Some system extensions had issues, continuing..."
 
-  # Install useful extensions
+  # Install useful extensions (version-gated for v14+ incompatible packages)
   echo "INFO Installing useful extensions"
-  sudo -u www-data sh -c "cd ${composerDirectory} && composer require --no-interaction plan2net/webp" || warn "webp extension had issues, continuing..."
+  if [ "${typo3MajorVersion}" -lt 14 ]; then
+    sudo -u www-data sh -c "cd ${composerDirectory} && composer require --no-interaction plan2net/webp" || warn "webp extension had issues, continuing..."
+  else
+    echo "INFO Skipping plan2net/webp — no TYPO3 v14 compatible release available yet"
+  fi
 
   # Add dev packages
   echo "INFO Installing dev dependencies"
@@ -303,7 +307,7 @@ $GLOBALS['TYPO3_CONF_VARS']['DB']['Connections']['Default']['password'] = $_ENV[
 $GLOBALS['TYPO3_CONF_VARS']['DB']['Connections']['Default']['host'] = $_ENV['DB_HOST'] ?? getenv('DB_HOST') ?: 'localhost';
 $GLOBALS['TYPO3_CONF_VARS']['DB']['Connections']['Default']['port'] = 3306;
 $GLOBALS['TYPO3_CONF_VARS']['DB']['Connections']['Default']['charset'] = 'utf8mb4';
-// Use modern defaultTableOptions for TYPO3 v13+ (backward compatible with v12)
+// defaultTableOptions replaces deprecated tableoptions (removed in TYPO3 v14, available since v12)
 $GLOBALS['TYPO3_CONF_VARS']['DB']['Connections']['Default']['defaultTableOptions'] = [
     'charset' => 'utf8mb4',
     'collation' => 'utf8mb4_unicode_ci',
@@ -353,9 +357,9 @@ if (getenv('IS_DDEV_PROJECT') === 'true') {
                         'port' => '3306',
                         'user' => 'db',
                         'charset' => 'utf8mb4',
-                        'tableoptions' => [
+                        'defaultTableOptions' => [
                             'charset' => 'utf8mb4',
-                            'collate' => 'utf8mb4_unicode_ci',
+                            'collation' => 'utf8mb4_unicode_ci',
                         ],
                     ],
                 ],
