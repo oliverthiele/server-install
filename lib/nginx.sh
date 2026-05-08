@@ -105,28 +105,11 @@ writeTypo3RewriteSnippet() {
   if [ "${typo3MajorVersion}" -ge 14 ]; then
     echo "INFO Writing TYPO3 v14+ rewrite snippet"
     cat >"${targetFile}" <<'EOF'
-# TYPO3 URL Rewrite Rules
+# TYPO3 URL Rewrite Rules (v14+)
 
-# TYPO3 v14+: public/typo3/index.php and install.php no longer exist.
-# All backend and install tool requests are routed through public/index.php.
-# Note: custom backend routes via config.yaml (backend.entryPoint) are supported.
-# This configuration assumes the default /typo3 route.
-
-location = /typo3 {
-    rewrite ^ /typo3/;
-}
-
-# Allow access to all public resources in TYPO3 backend
-location ~ ^/typo3/(.*/)?Resources/Public/ {
-    allow all;
-    break;
-}
-
-location /typo3/ {
-    # Uncomment for basic auth protection of backend
-    # include snippets/BasicAuth.nginx;
-    try_files $uri /index.php$is_args$args;
-}
+# In TYPO3 v14, backend and install tool requests are handled by the general
+# location / catch-all (public/index.php). Backend assets are served from
+# /_assets/ or the configured backend path — no /typo3/-specific rules needed.
 
 # versionNumberInFilename - aligned with TYPO3 core
 # Removes the timestamp from versioned files
