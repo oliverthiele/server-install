@@ -51,13 +51,9 @@ installTypo3() {
       typo3/cms-opendocs:${typo3Version} \
       typo3/cms-scheduler:${typo3Version}" || warn "Some system extensions had issues, continuing..."
 
-  # Install useful extensions (version-gated for v14+ incompatible packages)
+  # Install useful extensions
   echo "INFO Installing useful extensions"
-  if [ "${typo3MajorVersion}" -lt 14 ]; then
-    sudo -u www-data sh -c "cd ${composerDirectory} && composer require --no-interaction plan2net/webp" || warn "webp extension had issues, continuing..."
-  else
-    echo "INFO Skipping plan2net/webp — no TYPO3 v14 compatible release available yet"
-  fi
+  sudo -u www-data sh -c "cd ${composerDirectory} && composer require --no-interaction plan2net/webp" || warn "webp extension had issues, continuing..."
 
   # Add dev packages
   echo "INFO Installing dev dependencies"
