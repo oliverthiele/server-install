@@ -57,7 +57,8 @@ installTypo3() {
 
   # Add dev packages
   echo "INFO Installing dev dependencies"
-  sudo -u www-data sh -c "cd ${composerDirectory} && composer require --dev --no-interaction --with-all-dependencies typo3/coding-standards ssch/typo3-rector" || warn "Dev dependencies had issues, continuing..."
+  # typo3/coding-standards: dev-main until a new stable release beyond 0.8.0 is tagged
+  sudo -u www-data sh -c "cd ${composerDirectory} && composer require --dev --no-interaction --with-all-dependencies typo3/coding-standards:dev-main@dev ssch/typo3-rector" || warn "Dev dependencies had issues, continuing..."
 
   # Setup coding standards (only if typo3-coding-standards is installed)
   if [ -f "${composerDirectory}vendor/bin/typo3-coding-standards" ]; then
@@ -303,7 +304,7 @@ $GLOBALS['TYPO3_CONF_VARS']['DB']['Connections']['Default']['password'] = $_ENV[
 $GLOBALS['TYPO3_CONF_VARS']['DB']['Connections']['Default']['host'] = $_ENV['DB_HOST'] ?? getenv('DB_HOST') ?: 'localhost';
 $GLOBALS['TYPO3_CONF_VARS']['DB']['Connections']['Default']['port'] = 3306;
 $GLOBALS['TYPO3_CONF_VARS']['DB']['Connections']['Default']['charset'] = 'utf8mb4';
-// Use modern defaultTableOptions for TYPO3 v13+ (backward compatible with v12)
+// defaultTableOptions replaces deprecated tableoptions (removed in TYPO3 v14, available since v12)
 $GLOBALS['TYPO3_CONF_VARS']['DB']['Connections']['Default']['defaultTableOptions'] = [
     'charset' => 'utf8mb4',
     'collation' => 'utf8mb4_unicode_ci',
@@ -353,9 +354,9 @@ if (getenv('IS_DDEV_PROJECT') === 'true') {
                         'port' => '3306',
                         'user' => 'db',
                         'charset' => 'utf8mb4',
-                        'tableoptions' => [
+                        'defaultTableOptions' => [
                             'charset' => 'utf8mb4',
-                            'collate' => 'utf8mb4_unicode_ci',
+                            'collation' => 'utf8mb4_unicode_ci',
                         ],
                     ],
                 ],

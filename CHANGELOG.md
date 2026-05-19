@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] — 2026-05-19
+
+### Added
+
+- TYPO3 v14+ nginx rewrite snippet: `writeTypo3RewriteSnippet()` generates a version-specific
+  `typo3-rewrite.nginx` — v14+ routes all backend/install requests through `index.php`; v12/v13
+  preserves separate `typo3/index.php` and `install.php` routes
+
+### Changed
+
+- `plan2net/webp` re-enabled for TYPO3 v14 (compatible release now available)
+- `typo3/coding-standards` pinned to `dev-main` until a stable release beyond `0.8.0` is tagged
+
+### Fixed
+
+- `defaultTableOptions` replaces deprecated `tableoptions` key in TYPO3 database configuration
+  (required for TYPO3 v14, available since v12)
+- `collation` key corrected (was `collate`) in DDEV database connection options
+
+---
+
 ## [1.1.1] — 2026-04-27
 
 ### Fixed
