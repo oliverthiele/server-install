@@ -256,13 +256,9 @@ getUbuntuVersionAndSetPhpVersion() {
       fi
     fi
 
-    echo "  1) PHP ${defaultPhpVersion} (Ubuntu default repository)"
+    echo "  1) PHP ${defaultPhpVersion} (Ubuntu default repository, no PPA required)"
     echo "  2) PHP 8.4 (requires ondrej/php PPA)"
-    if [[ "${recommendedPhpVersion}" == "8.4" ]]; then
-      read -rp "Option [2]: " phpChoice
-    else
-      read -rp "Option [1]: " phpChoice
-    fi
+    read -rp "Option [1]: " phpChoice
 
     case "${phpChoice}" in
     2)
