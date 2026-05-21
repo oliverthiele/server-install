@@ -107,6 +107,7 @@ fi
 if ! isStepComplete "dependencies"; then
   installDependencies
   installSoftware
+  configureImageMagick
   installComposer
   markStepComplete "dependencies"
 fi

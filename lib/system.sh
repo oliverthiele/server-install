@@ -63,6 +63,57 @@ installCertbot() {
   apt --assume-yes install certbot python3-certbot-nginx
 }
 
+configureImageMagick() {
+  echo "INFO Configuring ImageMagick policy for PDF/PS/EPS support (required for TYPO3)"
+
+  local policyFile=""
+  for policyDir in /etc/ImageMagick-7 /etc/ImageMagick-6 /etc/ImageMagick; do
+    if [ -f "${policyDir}/policy.xml" ]; then
+      policyFile="${policyDir}/policy.xml"
+      break
+    fi
+  done
+
+  if [ -z "${policyFile}" ]; then
+    warn "ImageMagick policy.xml not found — PDF/PS/EPS thumbnails may not work in TYPO3"
+    return 0
+  fi
+
+  # Ubuntu restricts PDF/PS/EPS processing by default due to historic Ghostscript vulnerabilities.
+  # TYPO3 requires these formats for document thumbnails and previews.
+  for pattern in PDF PS PS2 PS3 EPS XPS; do
+    sed -i "s#<policy domain=\"coder\" rights=\"none\" pattern=\"${pattern}\"[[:space:]]*/>#<policy domain=\"coder\" rights=\"read|write\" pattern=\"${pattern}\"/>#g" "${policyFile}"
+  done
+
+  echo "INFO ImageMagick policy updated in ${policyFile}: PDF/PS/EPS/XPS enabled"
+
+  # AppArmor profile for Ghostscript (/etc/apparmor.d/gs) restricts file access
+  # even for root. Without /var/www/ in the allow list, Ghostscript cannot read
+  # TYPO3 files for PDF/AI thumbnail generation.
+  local gsAppArmorProfile="/etc/apparmor.d/gs"
+  local gsLocalOverride="/etc/apparmor.d/local/gs"
+
+  if [ ! -f "${gsAppArmorProfile}" ]; then
+    echo "INFO No Ghostscript AppArmor profile found — skipping"
+    return 0
+  fi
+
+  echo "INFO Adding /var/www/ to Ghostscript AppArmor local override"
+  mkdir -p /etc/apparmor.d/local
+
+  if ! grep -q '/var/www/\*\*' "${gsLocalOverride}" 2>/dev/null; then
+    cat >> "${gsLocalOverride}" << 'EOAPPARMOR'
+/var/www/** r,
+/tmp/magick-** rw,
+EOAPPARMOR
+  fi
+
+  apparmor_parser -r "${gsAppArmorProfile}" \
+    || warn "Failed to reload Ghostscript AppArmor profile — PDF thumbnails may not work"
+
+  echo "INFO Ghostscript AppArmor profile reloaded"
+}
+
 
 installComposer() {
   echo "Install composer from https://getcomposer.org"
