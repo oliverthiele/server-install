@@ -311,9 +311,20 @@ EOL
     basicAuthInclude="# include /etc/nginx/snippets/BasicAuth.nginx;"
   fi
 
-  # Create TYPO3 site configuration
-  cat >/etc/nginx/sites-available/typo3.nginx <<EOL
-# Default HTTP server: reject requests with unknown Host headers
+  # When serverDomain=_, the TYPO3 block must be the default_server.
+  # Separate catch-all blocks with server_name _ would conflict: nginx ignores the TYPO3
+  # block and returns 444 for all requests, making the site unreachable.
+  local serverListenDirectives
+  local catchAllConfig
+
+  if [[ "${serverDomain}" == "_" ]]; then
+    serverListenDirectives="listen 80 default_server;
+    listen [::]:80 default_server;"
+    catchAllConfig=""
+  else
+    serverListenDirectives="listen 80;
+    listen [::]:80;"
+    catchAllConfig="# Default HTTP server: reject requests with unknown Host headers
 server {
     listen 80 default_server;
     listen [::]:80 default_server;
@@ -330,9 +341,13 @@ server {
     ssl_reject_handshake on;
 }
 
-server {
-    listen 80;
-    listen [::]:80;
+"
+  fi
+
+  # Create TYPO3 site configuration
+  cat >/etc/nginx/sites-available/typo3.nginx <<EOL
+${catchAllConfig}server {
+    ${serverListenDirectives}
 
     charset utf-8;
 

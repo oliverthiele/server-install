@@ -25,6 +25,7 @@ installSoftware() {
   # Install AVIF shared library before php-gd so GD AVIF support is available at runtime.
   # Package name varies by Ubuntu version; silently skipped if unavailable (e.g. 20.04).
   case "${ubuntuVersion}" in
+    26.04) apt --assume-yes install libavif17 || warn "libavif17 not found on Ubuntu 26.04 — AVIF support in PHP-GD may be limited" ;;
     24.04) apt --assume-yes install libavif16 ;;
     22.04) apt --assume-yes install libavif13 ;;
   esac
@@ -41,7 +42,7 @@ installSoftware() {
     update-alternatives --set php "/usr/bin/php${phpVersion}"
   fi
 
-  if [[ "${ubuntuVersion}" =~ ^20.04$|^22.04$|^24.04$ ]]; then
+  if [[ "${ubuntuVersion}" =~ ^20.04$|^22.04$|^24.04$|^26.04$ ]]; then
     installCertbot
   fi
 }
