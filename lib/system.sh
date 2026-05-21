@@ -4,8 +4,16 @@
 
 installDependencies() {
   echo "INFO Install necessary build dependencies"
+
+  # Ubuntu 26.04 removed libpcre3 — use libpcre2-dev instead (nginx 1.21.5+ supports PCRE2)
+  local pcrePackages
+  case "${ubuntuVersion}" in
+    26.04) pcrePackages="libpcre2-dev" ;;
+    *)     pcrePackages="libpcre3 libpcre3-dev" ;;
+  esac
+
   apt update
-  apt install -y build-essential libpcre3 libpcre3-dev zlib1g zlib1g-dev libssl-dev wget git libbrotli-dev
+  apt install -y build-essential ${pcrePackages} zlib1g zlib1g-dev libssl-dev wget git libbrotli-dev
 }
 
 addPhpPpa() {
@@ -25,17 +33,20 @@ installSoftware() {
   # Install AVIF shared library before php-gd so GD AVIF support is available at runtime.
   # Package name varies by Ubuntu version; silently skipped if unavailable (e.g. 20.04).
   case "${ubuntuVersion}" in
-    26.04) apt --assume-yes install libavif17 || warn "libavif17 not found on Ubuntu 26.04 — AVIF support in PHP-GD may be limited" ;;
-    24.04) apt --assume-yes install libavif16 ;;
-    22.04) apt --assume-yes install libavif13 ;;
+    26.04|24.04) apt --assume-yes install libavif16 ;;
+    22.04)       apt --assume-yes install libavif13 ;;
   esac
 
   apt --assume-yes install nginx-full apache2-utils \
-    "php${phpVersion}"-{fpm,cli,common,curl,zip,gd,mysql,xml,mbstring,intl,yaml,opcache,soap,apcu,fileinfo} \
+    "php${phpVersion}"-{fpm,cli,common,curl,zip,gd,mysql,xml,mbstring,intl,yaml,soap,apcu,fileinfo} \
     redis-server mariadb-server \
     imagemagick libheif1 ghostscript git tig zip unzip catdoc argon2 file zsh zsh-syntax-highlighting \
     dos2unix jq webp brotli \
     update-notifier-common
+
+  # php-opcache is a separate package on Ubuntu 22.04/24.04 but bundled in php-common on 26.04
+  apt --assume-yes install "php${phpVersion}-opcache" \
+    || warn "php${phpVersion}-opcache not found — opcache is likely bundled in php${phpVersion}-common on this system"
 
   if [[ "${requiresPhpPpa}" == 'true' ]]; then
     echo "INFO Setting PHP ${phpVersion} as default CLI via update-alternatives"
