@@ -439,7 +439,7 @@ EOPHP
     --admin-user-password="${systemPass}" \
     --admin-email="${adminEmail}" \
     --project-name="TYPO3 CMS" \
-    --create-site="http://${serverDomain}/" \
+    --create-site="/" \
     --server-type=other; then
     setup_success=true
   fi
