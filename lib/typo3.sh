@@ -439,7 +439,7 @@ EOPHP
     --admin-user-password="${systemPass}" \
     --admin-email="${adminEmail}" \
     --project-name="TYPO3 CMS" \
-    --create-site="/" \
+    --create-site="http://${serverDomain}/" \
     --server-type=other; then
     setup_success=true
   fi
@@ -449,6 +449,15 @@ EOPHP
     if [ -f "${typo3PublicDirectory}/FIRST_INSTALL" ]; then
       rm "${typo3PublicDirectory}/FIRST_INSTALL"
       echo -e "${COLOR_GREEN}INFO FIRST_INSTALL removed${COLOR_NC}"
+    fi
+
+    # Set site base to '/' so the site works with both http and https.
+    # --create-site requires a full URL (CLI validation), but the base in
+    # config.yaml should be protocol-agnostic to survive the certbot switch.
+    local siteConfigFile="${composerDirectory}config/sites/main/config.yaml"
+    if [ -f "${siteConfigFile}" ]; then
+      sed -i "s|^base:.*|base: '/'|" "${siteConfigFile}"
+      echo "INFO Site base URL set to '/' in ${siteConfigFile}"
     fi
     # Set admin email and real name in the database
     # Escape single quotes for MySQL string literals (' → '') to prevent SQL injection
