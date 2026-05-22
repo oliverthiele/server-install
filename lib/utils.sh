@@ -222,7 +222,7 @@ getUbuntuVersionAndSetPhpVersion() {
 
   echo "---------------------------------------"
   echo "PHP version selection"
-  if [[ -n "${TYPO3_PHP_RECOMMENDED:-}" ]]; then
+  if [[ -n "${TYPO3_PHP_RECOMMENDED:-}" && -n "${TYPO3_PHP_MIN:-}" && -n "${TYPO3_PHP_MAX:-}" ]]; then
     echo "  Recommended for TYPO3 v${typo3MajorVersion}: PHP ${TYPO3_PHP_RECOMMENDED}"
     echo "  Supported range: PHP ${TYPO3_PHP_MIN} – ${TYPO3_PHP_MAX}"
   fi

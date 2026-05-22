@@ -13,7 +13,7 @@ installDependencies() {
   esac
 
   apt update
-  apt install -y build-essential ${pcrePackages} zlib1g zlib1g-dev libssl-dev wget git libbrotli-dev
+  apt install -y build-essential "${pcrePackages}" zlib1g zlib1g-dev libssl-dev wget git libbrotli-dev
 }
 
 addPhpPpa() {
