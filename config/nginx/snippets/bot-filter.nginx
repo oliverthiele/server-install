@@ -1,26 +1,48 @@
-# Bot and AI Crawler Filter
-# Returns 444 (connection closed) for known bad bots and aggressive AI crawlers
-# Place this in your server block before other location directives
+# Bot and AI Crawler Filter – PRODUCTION mode
+#
+# NOTE: This file is overwritten by writeBotFilterSnippet() in lib/nginx.sh
+# during installation. A STAGING mode variant (blocks AI crawlers too) is
+# generated there as well, depending on ${botFilterMode}.
+#
+# Abusive scrapers and Bytedance are blocked.
+# Major AI assistants (ChatGPT, Claude, Perplexity, Gemini) are allowed
+# so the site remains discoverable via AI search tools.
 
-# Block bad bots and scrapers
-if ($http_user_agent ~* (AhrefsBot|SemrushBot|DotBot|MJ12bot|Sogou|BLEXBot|Baiduspider)) {
-    return 444;
+set $block_bot 0;
+
+# Always block: Bytedance/TikTok (history of abusive crawling causing server load)
+if ($http_user_agent ~* (Bytespider|ByteDance|TikTokSpider)) {
+    set $block_bot 1;
 }
 
-# Block aggressive AI crawlers that ignore robots.txt or cause high load
-# Update this list based on your server logs and requirements
-if ($http_user_agent ~* (GPTBot|ChatGPT-User|CCBot|anthropic-ai|Claude-Web|cohere-ai|PerplexityBot|Omgilibot|Bytespider|FacebookBot|Applebot-Extended)) {
-    return 444;
+# Block SEO scrapers and aggressive crawlers (not search engines, purely commercial data harvesting)
+if ($http_user_agent ~* (AhrefsBot|SemrushBot|DotBot|MJ12bot|BLEXBot|DataForSeoBot|SeznamBot|MegaIndex|serpstatbot|SeekportBot|SEOkicks|SleepBot|Exabot|MauiBot|crawler4j|TurnitinBot|libwww-perl|Python-urllib|GrabNet|GetRight|Go!Zilla|SERanking|Indy\.Library|Omgilibot)) {
+    set $block_bot 1;
 }
 
-# Block if no User-Agent is provided (common for scrapers)
+# Block search engine crawlers without relevant traffic for most DE/EU sites
+if ($http_user_agent ~* (Baiduspider|Baidu|Sogou|360Spider|YisouSpider|Yisou|YoudaoBot|Youdao|Sosospider|HaoSouSpider|PetalBot|Yandex|Amazonbot|AmazonProductDiscovery)) {
+    set $block_bot 1;
+}
+
+# Block empty User-Agent (common for scrapers)
 if ($http_user_agent = "") {
+    set $block_bot 1;
+}
+
+# Allowed tools: never block, even if matched above
+# (uptime monitoring and E2E test runners must reach the site)
+if ($http_user_agent ~* (HetrixTools|Playwright)) {
+    set $block_bot 0;
+}
+
+if ($block_bot = 1) {
     return 444;
 }
 
-# Optional: Rate limiting for search engines on expensive endpoints
-# Uncomment and adjust if needed
-# limit_req_zone $binary_remote_addr zone=search:10m rate=10r/s;
-# location ~ ^/(search|suche) {
-#     limit_req zone=search burst=20 nodelay;
-# }
+# Allowed AI crawlers (no explicit block needed, listed here for documentation):
+# GPTBot, OAI-SearchBot (ChatGPT/OpenAI)
+# ClaudeBot, anthropic-ai (Claude/Anthropic)
+# PerplexityBot (Perplexity)
+# Google-Extended (Gemini/Google AI)
+# Note: control access per-site via robots.txt if needed

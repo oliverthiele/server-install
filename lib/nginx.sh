@@ -14,18 +14,35 @@ writeBotFilterSnippet() {
 # All AI crawlers and SEO scrapers are blocked.
 # This system is not intended to be indexed.
 
-# Block SEO scrapers
-if ($http_user_agent ~* (AhrefsBot|SemrushBot|DotBot|MJ12bot|Sogou|BLEXBot|Baiduspider)) {
-    return 444;
+set $block_bot 0;
+
+# Block SEO scrapers and aggressive crawlers (not search engines, purely commercial data harvesting)
+if ($http_user_agent ~* (AhrefsBot|SemrushBot|DotBot|MJ12bot|BLEXBot|DataForSeoBot|SeznamBot|MegaIndex|serpstatbot|SeekportBot|SEOkicks|SleepBot|Exabot|MauiBot|crawler4j|TurnitinBot|libwww-perl|Python-urllib|GrabNet|GetRight|Go!Zilla|SERanking|Indy\.Library|Omgilibot)) {
+    set $block_bot 1;
+}
+
+# Block search engine crawlers without relevant traffic for most DE/EU sites
+if ($http_user_agent ~* (Baiduspider|Baidu|Sogou|360Spider|YisouSpider|Yisou|YoudaoBot|Youdao|Sosospider|HaoSouSpider|PetalBot|Yandex|Amazonbot|AmazonProductDiscovery|Bytespider|ByteDance|TikTokSpider)) {
+    set $block_bot 1;
 }
 
 # Block all AI crawlers
-if ($http_user_agent ~* (GPTBot|ChatGPT-User|OAI-SearchBot|CCBot|anthropic-ai|ClaudeBot|Claude-Web|cohere-ai|PerplexityBot|Omgilibot|Bytespider|FacebookBot|Applebot-Extended|Google-Extended|Amazonbot|YouBot|ImagesiftBot)) {
-    return 444;
+if ($http_user_agent ~* (GPTBot|ChatGPT-User|OAI-SearchBot|CCBot|anthropic-ai|ClaudeBot|Claude-Web|cohere-ai|PerplexityBot|Perplexity-User|FacebookBot|meta-externalagent|Applebot-Extended|Google-Extended|GoogleOther|YouBot|ImagesiftBot)) {
+    set $block_bot 1;
 }
 
 # Block empty User-Agent (common for scrapers)
 if ($http_user_agent = "") {
+    set $block_bot 1;
+}
+
+# Allowed tools: never block, even if matched above
+# (uptime monitoring and E2E test runners must reach the site)
+if ($http_user_agent ~* (HetrixTools|Playwright)) {
+    set $block_bot 0;
+}
+
+if ($block_bot = 1) {
     return 444;
 }
 EOL
@@ -37,18 +54,35 @@ EOL
 # Major AI assistants (ChatGPT, Claude, Perplexity, Gemini) are allowed
 # so the site remains discoverable via AI search tools.
 
+set $block_bot 0;
+
 # Always block: Bytedance/TikTok (history of abusive crawling causing server load)
-if ($http_user_agent ~* (Bytespider)) {
-    return 444;
+if ($http_user_agent ~* (Bytespider|ByteDance|TikTokSpider)) {
+    set $block_bot 1;
 }
 
-# Block SEO scrapers (not search engines, purely commercial data harvesting)
-if ($http_user_agent ~* (AhrefsBot|SemrushBot|DotBot|MJ12bot|Sogou|BLEXBot|Baiduspider|Omgilibot)) {
-    return 444;
+# Block SEO scrapers and aggressive crawlers (not search engines, purely commercial data harvesting)
+if ($http_user_agent ~* (AhrefsBot|SemrushBot|DotBot|MJ12bot|BLEXBot|DataForSeoBot|SeznamBot|MegaIndex|serpstatbot|SeekportBot|SEOkicks|SleepBot|Exabot|MauiBot|crawler4j|TurnitinBot|libwww-perl|Python-urllib|GrabNet|GetRight|Go!Zilla|SERanking|Indy\.Library|Omgilibot)) {
+    set $block_bot 1;
+}
+
+# Block search engine crawlers without relevant traffic for most DE/EU sites
+if ($http_user_agent ~* (Baiduspider|Baidu|Sogou|360Spider|YisouSpider|Yisou|YoudaoBot|Youdao|Sosospider|HaoSouSpider|PetalBot|Yandex|Amazonbot|AmazonProductDiscovery)) {
+    set $block_bot 1;
 }
 
 # Block empty User-Agent (common for scrapers)
 if ($http_user_agent = "") {
+    set $block_bot 1;
+}
+
+# Allowed tools: never block, even if matched above
+# (uptime monitoring and E2E test runners must reach the site)
+if ($http_user_agent ~* (HetrixTools|Playwright)) {
+    set $block_bot 0;
+}
+
+if ($block_bot = 1) {
     return 444;
 }
 
@@ -364,6 +398,8 @@ ${catchAllConfig}server {
     # Include optimizations
     # Note: brotli.conf is auto-loaded from /etc/nginx/conf.d/ in http context
     include /etc/nginx/snippets/bot-filter.nginx;
+    include /etc/nginx/snippets/exploit-filter.nginx;
+    include /etc/nginx/snippets/typo3-security-filter.nginx;
     include /etc/nginx/snippets/security.nginx;
     include /etc/nginx/snippets/caching.nginx;
     include /etc/nginx/snippets/typo3-rewrite.nginx;
