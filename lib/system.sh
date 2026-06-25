@@ -40,10 +40,16 @@ installSoftware() {
   apt --assume-yes install nginx-full apache2-utils \
     "php${phpVersion}"-{fpm,cli,common,curl,zip,gd,mysql,xml,mbstring,intl,yaml,soap,apcu,fileinfo} \
     redis-server mariadb-server \
-    imagemagick libheif1 ghostscript poppler-utils libimage-exiftool-perl \
-    git tig zip unzip catdoc argon2 file zsh zsh-syntax-highlighting \
+    imagemagick libheif1 ghostscript \
+    git tig zip unzip argon2 file zsh zsh-syntax-highlighting \
     dos2unix jq webp brotli \
     update-notifier-common
+
+  # Document indexing tools for TYPO3 indexed_search, ke_search, and FAL metadata extraction:
+  # poppler-utils: pdftotext / pdfinfo — PDF full-text indexing
+  # catdoc:        catdoc / xls2csv / catppt — Word, Excel, PowerPoint text extraction
+  # exiftool:      read IPTC / XMP / GPS metadata from uploaded images and documents
+  apt --assume-yes install poppler-utils catdoc libimage-exiftool-perl
 
   # php-opcache is a separate package on Ubuntu 22.04/24.04 but bundled in php-common on 26.04
   apt --assume-yes install "php${phpVersion}-opcache" \
