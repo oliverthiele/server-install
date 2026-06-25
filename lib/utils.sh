@@ -108,9 +108,9 @@ checkPrerequisites() {
   local ubuntu_version
   ubuntu_version=$(lsb_release -rs 2>/dev/null || echo "unknown")
   case "${ubuntu_version}" in
-    24.04|22.04) _pf_pass "Ubuntu ${ubuntu_version} supported" ;;
+    26.04|24.04|22.04) _pf_pass "Ubuntu ${ubuntu_version} supported" ;;
     20.04)       _pf_warn "Ubuntu 20.04 reached end-of-life (April 2025) — use 22.04 or 24.04 for production" ;;
-    *)           _pf_fail "Ubuntu ${ubuntu_version} not supported (supported: 20.04, 22.04, 24.04)" ;;
+    *)           _pf_fail "Ubuntu ${ubuntu_version} not supported (supported: 20.04, 22.04, 24.04, 26.04)" ;;
   esac
 
   # ── 2. SSH authorized_keys ───────────────────────────────────────────────────
@@ -208,11 +208,12 @@ getUbuntuVersionAndSetPhpVersion() {
 
   # Determine Ubuntu default PHP version
   case "${ubuntuVersion}" in
+  '26.04') defaultPhpVersion='8.5' ;;
   '24.04') defaultPhpVersion='8.3' ;;
   '22.04') defaultPhpVersion='8.1' ;;
   '20.04') defaultPhpVersion='7.4' ;;
   *)
-    die "Unsupported Ubuntu version: ${ubuntuVersion} — supported: 20.04, 22.04, 24.04"
+    die "Unsupported Ubuntu version: ${ubuntuVersion} — supported: 20.04, 22.04, 24.04, 26.04"
     ;;
   esac
 
@@ -221,7 +222,7 @@ getUbuntuVersionAndSetPhpVersion() {
 
   echo "---------------------------------------"
   echo "PHP version selection"
-  if [[ -n "${TYPO3_PHP_RECOMMENDED:-}" ]]; then
+  if [[ -n "${TYPO3_PHP_RECOMMENDED:-}" && -n "${TYPO3_PHP_MIN:-}" && -n "${TYPO3_PHP_MAX:-}" ]]; then
     echo "  Recommended for TYPO3 v${typo3MajorVersion}: PHP ${TYPO3_PHP_RECOMMENDED}"
     echo "  Supported range: PHP ${TYPO3_PHP_MIN} – ${TYPO3_PHP_MAX}"
   fi
@@ -244,6 +245,29 @@ getUbuntuVersionAndSetPhpVersion() {
     *)
       phpVersion='8.4'
       requiresPhpPpa='true'
+      ;;
+    esac
+  elif [[ "${ubuntuVersion}" == "26.04" ]]; then
+    # On Ubuntu 26.04, the minimum installable PHP is 8.4 (via PPA).
+    # TYPO3 versions that require PHP max < 8.4 are not supported.
+    if [[ -n "${TYPO3_PHP_MAX:-}" ]]; then
+      if [[ "$(echo "8.4 ${TYPO3_PHP_MAX}" | awk '{print ($1 > $2)}')" == "1" ]]; then
+        die "TYPO3 v${typo3MajorVersion} supports PHP up to ${TYPO3_PHP_MAX} — not compatible with Ubuntu 26.04 (minimum available: PHP 8.4). Use Ubuntu 24.04 for TYPO3 v${typo3MajorVersion}."
+      fi
+    fi
+
+    echo "  1) PHP ${defaultPhpVersion} (Ubuntu default repository, no PPA required)"
+    echo "  2) PHP 8.4 (requires ondrej/php PPA)"
+    read -rp "Option [1]: " phpChoice
+
+    case "${phpChoice}" in
+    2)
+      phpVersion='8.4'
+      requiresPhpPpa='true'
+      ;;
+    *)
+      phpVersion="${defaultPhpVersion}"
+      requiresPhpPpa='false'
       ;;
     esac
   else

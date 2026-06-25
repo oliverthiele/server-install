@@ -1,0 +1,29 @@
+# TYPO3 Security Filter
+# Blocks exploit probes that are irrelevant for TYPO3 installations and
+# bot-driven requests to expensive TYPO3 endpoints (search, login recovery).
+# Place this in your server block before other location directives.
+
+# Block WordPress/CMS probes — a TYPO3 site never serves these paths,
+# so any request to them is a scan, not a legitimate visitor
+if ($request_uri ~* "wp-login\.php|wp-admin|wp-content|wp-includes|xmlrpc\.php") {
+    return 444;
+}
+
+# Block direct access to TYPO3 extension source/private directories
+if ($request_uri ~* "/Private/") {
+    return 444;
+}
+
+# Block crawlers hitting expensive search/login-recovery endpoints
+# (e.g. SQLi probes via tx_felogin_login[action]=recovery, tx_solr[q]=...)
+set $block_typo3_bot 0;
+
+if ($http_user_agent ~* "(bot|crawl|spider|slurp)") {
+    set $block_typo3_bot 1;
+}
+if ($request_uri ~* "tx_solr\[q\]=|tx_felogin_login(%5B|\[)action(%5D|\])=recovery") {
+    set $block_typo3_bot "${block_typo3_bot}1";
+}
+if ($block_typo3_bot = "11") {
+    return 444;
+}

@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] — 2026-06-25
+
+### Added
+
+- Ubuntu 26.04 LTS support
+- TYPO3 v14 set as default installation option (still selectable: v12.4 LTS, v13.4 LTS, v14)
+- `configureImageMagick()` function — writes explicit ImageMagick policy and configures it as
+  TYPO3 GFX processor during dependency installation
+- Document indexing tools installed by default:
+  - `poppler-utils` (`pdftotext`, `pdfinfo`) — PDF full-text indexing for indexed_search and ke_search
+  - `catdoc` (`catdoc`, `xls2csv`, `catppt`) — Word, Excel, PowerPoint text extraction for indexed_search
+    and ke_search
+  - `libimage-exiftool-perl` (`exiftool`) — IPTC / XMP / GPS metadata extraction from uploaded files
+    for FAL / EXT:filemetadata
+
+### Changed
+
+- PHP memory limit raised from 256M to 512M
+- PHP-FPM worker count: RAM estimate per worker raised; hard cap on `pm.max_children` added to
+  prevent out-of-memory on servers with many cores
+- TYPO3 site creation: full URL passed to `--create-site`; base rewritten to `/` post-setup to
+  avoid hardcoded domain in site configuration
+
+### Fixed
+
+- Package compatibility on Ubuntu 26.04 (`libavif16` selected correctly)
+- Shell quoting corrected in several places; PHP version display guarded against missing variables
+- TYPO3 site base URL: relative base `'/'` is now set after setup to prevent domain lock-in
+- Nginx bot filter overhauled: exploit patterns and TYPO3-specific attack signatures added
+
+---
+
 ## [1.2.0] — 2026-05-19
 
 ### Added
@@ -166,6 +198,9 @@ in a single script run.
 - Colorized "INSTALLATION COMPLETE" summary with all credentials and numbered next steps
 - ShellCheck CI workflow (GitHub Actions)
 
+[1.3.0]: https://github.com/oliverthiele/server-install/compare/v1.2.0...v1.3.0
+[1.2.0]: https://github.com/oliverthiele/server-install/compare/v1.1.1...v1.2.0
+[1.1.1]: https://github.com/oliverthiele/server-install/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/oliverthiele/server-install/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/oliverthiele/server-install/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/oliverthiele/server-install/releases/tag/v1.0.0

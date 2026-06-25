@@ -1,14 +1,14 @@
 # TYPO3 Server Installation Script
 
-[![TYPO3](https://img.shields.io/badge/TYPO3-12.4_LTS_|_13.4_LTS-orange.svg)](https://typo3.org/)
+[![TYPO3](https://img.shields.io/badge/TYPO3-12.4_|_13.4_|_14-orange.svg)](https://typo3.org/)
 [![PHP](https://img.shields.io/badge/PHP-8.1_|_8.3_|_8.4-blue.svg)](https://php.net/)
-[![Ubuntu](https://img.shields.io/badge/Ubuntu-22.04_|_24.04-E95420.svg)](https://ubuntu.com/)
+[![Ubuntu](https://img.shields.io/badge/Ubuntu-22.04_|_24.04_|_26.04-E95420.svg)](https://ubuntu.com/)
 [![Nginx](https://img.shields.io/badge/Nginx-Brotli-009639.svg)](https://nginx.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![shellcheck](https://github.com/oliverthiele/server-install/actions/workflows/shellcheck.yml/badge.svg)](https://github.com/oliverthiele/server-install/actions/workflows/shellcheck.yml)
 
 Automated bash installer for TYPO3 on Ubuntu Server. Sets up a complete production stack — Nginx with Brotli, PHP-FPM,
-MariaDB, Redis, SSL hardening — and installs TYPO3 v12 or v13 via Composer in one interactive run. Interrupted
+MariaDB, Redis, SSL hardening — and installs TYPO3 v12, v13, or v14 via Composer in one interactive run. Interrupted
 installations can be resumed at any step.
 
 > **Designed for fresh servers only.** This script is intended for newly provisioned Ubuntu servers with no existing
@@ -19,8 +19,8 @@ installations can be resumed at any step.
 
 | Category            | Details                                                                             |
 |---------------------|-------------------------------------------------------------------------------------|
-| **TYPO3**           | v12.4 LTS and v13.4 LTS (interactive selection)                                     |
-| **Ubuntu**          | 22.04, 24.04 (recommended) — 20.04 legacy¹                                          |
+| **TYPO3**           | v12.4 LTS, v13.4 LTS and v14 (interactive selection)                                |
+| **Ubuntu**          | 22.04, 24.04, 26.04 (recommended) — 20.04 legacy¹                                   |
 | **PHP**             | 8.1 / 8.3 / 8.4 — ondrej/php PPA for PHP 8.4 on 24.04                               |
 | **Web server**      | Nginx with dynamically compiled Brotli module                                       |
 | **Database**        | MariaDB with automated hardening                                                    |
@@ -36,14 +36,14 @@ installations can be resumed at any step.
 
 ## Requirements
 
-| Requirement          | Details                                                                  |
-|----------------------|--------------------------------------------------------------------------|
-| OS                   | Ubuntu 22.04 LTS or 24.04 LTS (fresh installation, nothing else running) |
-| RAM                  | 2 GB minimum recommended                                                 |
-| Disk                 | 4 GB free on `/`                                                         |
-| Internet             | Required (apt, Composer, GitHub for Brotli source)                       |
-| SSH key              | Public key in `/root/.ssh/authorized_keys` before running                |
-| Conflicting services | No Apache2, no existing Nginx site configs, ports 80/443 free            |
+| Requirement          | Details                                                                           |
+|----------------------|-----------------------------------------------------------------------------------|
+| OS                   | Ubuntu 22.04, 24.04, or 26.04 LTS (fresh installation, nothing else running)     |
+| RAM                  | 2 GB minimum recommended                                                          |
+| Disk                 | 4 GB free on `/`                                                                  |
+| Internet             | Required (apt, Composer, GitHub for Brotli source)                                |
+| SSH key              | Public key in `/root/.ssh/authorized_keys` before running                         |
+| Conflicting services | No Apache2, no existing Nginx site configs, ports 80/443 free                     |
 
 The installer runs a pre-flight check at startup and will stop or warn if any of these conditions are not met.
 
@@ -154,6 +154,10 @@ server-install/
 - **Composer** — verified checksum install
 - **Node.js v22** — via nvm, installed for `www-data`
 - **ImageMagick** — image processing with AVIF support (via libheif)
+- **Ghostscript** — PDF rendering backend for ImageMagick
+- **poppler-utils** — `pdftotext` / `pdfinfo` for TYPO3 indexed_search and ke_search PDF indexing
+- **catdoc** — `catdoc` / `xls2csv` / `catppt` for Word, Excel, PowerPoint text extraction (indexed_search, ke_search)
+- **exiftool** — IPTC / XMP / GPS metadata extraction from uploaded images and documents (FAL)
 - **Certbot** — Let's Encrypt SSL certificates
 - **Zsh** — with oh-my-zsh and agnoster theme
 - **Git, tig, jq** — development utilities

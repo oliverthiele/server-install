@@ -450,6 +450,15 @@ EOPHP
       rm "${typo3PublicDirectory}/FIRST_INSTALL"
       echo -e "${COLOR_GREEN}INFO FIRST_INSTALL removed${COLOR_NC}"
     fi
+
+    # Set site base to '/' so the site works with both http and https.
+    # --create-site requires a full URL (CLI validation), but the base in
+    # config.yaml should be protocol-agnostic to survive the certbot switch.
+    local siteConfigFile="${composerDirectory}config/sites/main/config.yaml"
+    if [ -f "${siteConfigFile}" ]; then
+      sed -i "s|^base:.*|base: '/'|" "${siteConfigFile}"
+      echo "INFO Site base URL set to '/' in ${siteConfigFile}"
+    fi
     # Set admin email and real name in the database
     # Escape single quotes for MySQL string literals (' → '') to prevent SQL injection
     local safeEmail="${adminEmail//\'/\'\'}"

@@ -14,18 +14,35 @@ writeBotFilterSnippet() {
 # All AI crawlers and SEO scrapers are blocked.
 # This system is not intended to be indexed.
 
-# Block SEO scrapers
-if ($http_user_agent ~* (AhrefsBot|SemrushBot|DotBot|MJ12bot|Sogou|BLEXBot|Baiduspider)) {
-    return 444;
+set $block_bot 0;
+
+# Block SEO scrapers and aggressive crawlers (not search engines, purely commercial data harvesting)
+if ($http_user_agent ~* (AhrefsBot|SemrushBot|DotBot|MJ12bot|BLEXBot|DataForSeoBot|SeznamBot|MegaIndex|serpstatbot|SeekportBot|SEOkicks|SleepBot|Exabot|MauiBot|crawler4j|TurnitinBot|libwww-perl|Python-urllib|GrabNet|GetRight|Go!Zilla|SERanking|Indy\.Library|Omgilibot)) {
+    set $block_bot 1;
+}
+
+# Block search engine crawlers without relevant traffic for most DE/EU sites
+if ($http_user_agent ~* (Baiduspider|Baidu|Sogou|360Spider|YisouSpider|Yisou|YoudaoBot|Youdao|Sosospider|HaoSouSpider|PetalBot|Yandex|Amazonbot|AmazonProductDiscovery|Bytespider|ByteDance|TikTokSpider)) {
+    set $block_bot 1;
 }
 
 # Block all AI crawlers
-if ($http_user_agent ~* (GPTBot|ChatGPT-User|OAI-SearchBot|CCBot|anthropic-ai|ClaudeBot|Claude-Web|cohere-ai|PerplexityBot|Omgilibot|Bytespider|FacebookBot|Applebot-Extended|Google-Extended|Amazonbot|YouBot|ImagesiftBot)) {
-    return 444;
+if ($http_user_agent ~* (GPTBot|ChatGPT-User|OAI-SearchBot|CCBot|anthropic-ai|ClaudeBot|Claude-Web|cohere-ai|PerplexityBot|Perplexity-User|FacebookBot|meta-externalagent|Applebot-Extended|Google-Extended|GoogleOther|YouBot|ImagesiftBot)) {
+    set $block_bot 1;
 }
 
 # Block empty User-Agent (common for scrapers)
 if ($http_user_agent = "") {
+    set $block_bot 1;
+}
+
+# Allowed tools: never block, even if matched above
+# (uptime monitoring and E2E test runners must reach the site)
+if ($http_user_agent ~* (HetrixTools|Playwright)) {
+    set $block_bot 0;
+}
+
+if ($block_bot = 1) {
     return 444;
 }
 EOL
@@ -37,18 +54,35 @@ EOL
 # Major AI assistants (ChatGPT, Claude, Perplexity, Gemini) are allowed
 # so the site remains discoverable via AI search tools.
 
+set $block_bot 0;
+
 # Always block: Bytedance/TikTok (history of abusive crawling causing server load)
-if ($http_user_agent ~* (Bytespider)) {
-    return 444;
+if ($http_user_agent ~* (Bytespider|ByteDance|TikTokSpider)) {
+    set $block_bot 1;
 }
 
-# Block SEO scrapers (not search engines, purely commercial data harvesting)
-if ($http_user_agent ~* (AhrefsBot|SemrushBot|DotBot|MJ12bot|Sogou|BLEXBot|Baiduspider|Omgilibot)) {
-    return 444;
+# Block SEO scrapers and aggressive crawlers (not search engines, purely commercial data harvesting)
+if ($http_user_agent ~* (AhrefsBot|SemrushBot|DotBot|MJ12bot|BLEXBot|DataForSeoBot|SeznamBot|MegaIndex|serpstatbot|SeekportBot|SEOkicks|SleepBot|Exabot|MauiBot|crawler4j|TurnitinBot|libwww-perl|Python-urllib|GrabNet|GetRight|Go!Zilla|SERanking|Indy\.Library|Omgilibot)) {
+    set $block_bot 1;
+}
+
+# Block search engine crawlers without relevant traffic for most DE/EU sites
+if ($http_user_agent ~* (Baiduspider|Baidu|Sogou|360Spider|YisouSpider|Yisou|YoudaoBot|Youdao|Sosospider|HaoSouSpider|PetalBot|Yandex|Amazonbot|AmazonProductDiscovery)) {
+    set $block_bot 1;
 }
 
 # Block empty User-Agent (common for scrapers)
 if ($http_user_agent = "") {
+    set $block_bot 1;
+}
+
+# Allowed tools: never block, even if matched above
+# (uptime monitoring and E2E test runners must reach the site)
+if ($http_user_agent ~* (HetrixTools|Playwright)) {
+    set $block_bot 0;
+}
+
+if ($block_bot = 1) {
     return 444;
 }
 
@@ -311,9 +345,20 @@ EOL
     basicAuthInclude="# include /etc/nginx/snippets/BasicAuth.nginx;"
   fi
 
-  # Create TYPO3 site configuration
-  cat >/etc/nginx/sites-available/typo3.nginx <<EOL
-# Default HTTP server: reject requests with unknown Host headers
+  # When serverDomain=_, the TYPO3 block must be the default_server.
+  # Separate catch-all blocks with server_name _ would conflict: nginx ignores the TYPO3
+  # block and returns 444 for all requests, making the site unreachable.
+  local serverListenDirectives
+  local catchAllConfig
+
+  if [[ "${serverDomain}" == "_" ]]; then
+    serverListenDirectives="listen 80 default_server;
+    listen [::]:80 default_server;"
+    catchAllConfig=""
+  else
+    serverListenDirectives="listen 80;
+    listen [::]:80;"
+    catchAllConfig="# Default HTTP server: reject requests with unknown Host headers
 server {
     listen 80 default_server;
     listen [::]:80 default_server;
@@ -330,9 +375,13 @@ server {
     ssl_reject_handshake on;
 }
 
-server {
-    listen 80;
-    listen [::]:80;
+"
+  fi
+
+  # Create TYPO3 site configuration
+  cat >/etc/nginx/sites-available/typo3.nginx <<EOL
+${catchAllConfig}server {
+    ${serverListenDirectives}
 
     charset utf-8;
 
@@ -349,6 +398,8 @@ server {
     # Include optimizations
     # Note: brotli.conf is auto-loaded from /etc/nginx/conf.d/ in http context
     include /etc/nginx/snippets/bot-filter.nginx;
+    include /etc/nginx/snippets/exploit-filter.nginx;
+    include /etc/nginx/snippets/typo3-security-filter.nginx;
     include /etc/nginx/snippets/security.nginx;
     include /etc/nginx/snippets/caching.nginx;
     include /etc/nginx/snippets/typo3-rewrite.nginx;

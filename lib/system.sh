@@ -4,8 +4,16 @@
 
 installDependencies() {
   echo "INFO Install necessary build dependencies"
+
+  # Ubuntu 26.04 removed libpcre3 — use libpcre2-dev instead (nginx 1.21.5+ supports PCRE2)
+  local pcrePackages
+  case "${ubuntuVersion}" in
+    26.04) pcrePackages="libpcre2-dev" ;;
+    *)     pcrePackages="libpcre3 libpcre3-dev" ;;
+  esac
+
   apt update
-  apt install -y build-essential libpcre3 libpcre3-dev zlib1g zlib1g-dev libssl-dev wget git libbrotli-dev
+  apt install -y build-essential "${pcrePackages}" zlib1g zlib1g-dev libssl-dev wget git libbrotli-dev
 }
 
 addPhpPpa() {
@@ -25,23 +33,34 @@ installSoftware() {
   # Install AVIF shared library before php-gd so GD AVIF support is available at runtime.
   # Package name varies by Ubuntu version; silently skipped if unavailable (e.g. 20.04).
   case "${ubuntuVersion}" in
-    24.04) apt --assume-yes install libavif16 ;;
-    22.04) apt --assume-yes install libavif13 ;;
+    26.04|24.04) apt --assume-yes install libavif16 ;;
+    22.04)       apt --assume-yes install libavif13 ;;
   esac
 
   apt --assume-yes install nginx-full apache2-utils \
-    "php${phpVersion}"-{fpm,cli,common,curl,zip,gd,mysql,xml,mbstring,intl,yaml,opcache,soap,apcu,fileinfo} \
+    "php${phpVersion}"-{fpm,cli,common,curl,zip,gd,mysql,xml,mbstring,intl,yaml,soap,apcu,fileinfo} \
     redis-server mariadb-server \
-    imagemagick libheif1 ghostscript git tig zip unzip catdoc argon2 file zsh zsh-syntax-highlighting \
+    imagemagick libheif1 ghostscript \
+    git tig zip unzip argon2 file zsh zsh-syntax-highlighting \
     dos2unix jq webp brotli \
     update-notifier-common
+
+  # Document indexing tools for TYPO3 indexed_search, ke_search, and FAL metadata extraction:
+  # poppler-utils: pdftotext / pdfinfo — PDF full-text indexing
+  # catdoc:        catdoc / xls2csv / catppt — Word, Excel, PowerPoint text extraction
+  # exiftool:      read IPTC / XMP / GPS metadata from uploaded images and documents
+  apt --assume-yes install poppler-utils catdoc libimage-exiftool-perl
+
+  # php-opcache is a separate package on Ubuntu 22.04/24.04 but bundled in php-common on 26.04
+  apt --assume-yes install "php${phpVersion}-opcache" \
+    || warn "php${phpVersion}-opcache not found — opcache is likely bundled in php${phpVersion}-common on this system"
 
   if [[ "${requiresPhpPpa}" == 'true' ]]; then
     echo "INFO Setting PHP ${phpVersion} as default CLI via update-alternatives"
     update-alternatives --set php "/usr/bin/php${phpVersion}"
   fi
 
-  if [[ "${ubuntuVersion}" =~ ^20.04$|^22.04$|^24.04$ ]]; then
+  if [[ "${ubuntuVersion}" =~ ^20.04$|^22.04$|^24.04$|^26.04$ ]]; then
     installCertbot
   fi
 }
@@ -49,6 +68,57 @@ installSoftware() {
 installCertbot() {
   echo "Install Lets Encrypt certbot"
   apt --assume-yes install certbot python3-certbot-nginx
+}
+
+configureImageMagick() {
+  echo "INFO Configuring ImageMagick policy for PDF/PS/EPS support (required for TYPO3)"
+
+  local policyFile=""
+  for policyDir in /etc/ImageMagick-7 /etc/ImageMagick-6 /etc/ImageMagick; do
+    if [ -f "${policyDir}/policy.xml" ]; then
+      policyFile="${policyDir}/policy.xml"
+      break
+    fi
+  done
+
+  if [ -z "${policyFile}" ]; then
+    warn "ImageMagick policy.xml not found — PDF/PS/EPS thumbnails may not work in TYPO3"
+    return 0
+  fi
+
+  # Ubuntu restricts PDF/PS/EPS processing by default due to historic Ghostscript vulnerabilities.
+  # TYPO3 requires these formats for document thumbnails and previews.
+  for pattern in PDF PS PS2 PS3 EPS XPS; do
+    sed -i "s#<policy domain=\"coder\" rights=\"none\" pattern=\"${pattern}\"[[:space:]]*/>#<policy domain=\"coder\" rights=\"read|write\" pattern=\"${pattern}\"/>#g" "${policyFile}"
+  done
+
+  echo "INFO ImageMagick policy updated in ${policyFile}: PDF/PS/EPS/XPS enabled"
+
+  # AppArmor profile for Ghostscript (/etc/apparmor.d/gs) restricts file access
+  # even for root. Without /var/www/ in the allow list, Ghostscript cannot read
+  # TYPO3 files for PDF/AI thumbnail generation.
+  local gsAppArmorProfile="/etc/apparmor.d/gs"
+  local gsLocalOverride="/etc/apparmor.d/local/gs"
+
+  if [ ! -f "${gsAppArmorProfile}" ]; then
+    echo "INFO No Ghostscript AppArmor profile found — skipping"
+    return 0
+  fi
+
+  echo "INFO Adding /var/www/ to Ghostscript AppArmor local override"
+  mkdir -p /etc/apparmor.d/local
+
+  if ! grep -q '/var/www/\*\*' "${gsLocalOverride}" 2>/dev/null; then
+    cat >> "${gsLocalOverride}" << 'EOAPPARMOR'
+/var/www/** r,
+/tmp/magick-** rw,
+EOAPPARMOR
+  fi
+
+  apparmor_parser -r "${gsAppArmorProfile}" \
+    || warn "Failed to reload Ghostscript AppArmor profile — PDF thumbnails may not work"
+
+  echo "INFO Ghostscript AppArmor profile reloaded"
 }
 
 

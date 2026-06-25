@@ -13,7 +13,7 @@ PHP_MAX_INPUT_TIME="120"
 # TYPO3 recommends 1500; 10000 is intentionally higher for complex pages
 # with many content elements, TypoScript constants, or large FlexForms.
 PHP_MAX_INPUT_VARS="10000"
-PHP_MEMORY_LIMIT="256M"
+PHP_MEMORY_LIMIT="512M"
 # PCRE JIT speeds up regular expression matching; enabled by default in most
 # PHP builds but explicitly set here to ensure consistent behavior.
 PHP_PCRE_JIT="1"

@@ -2,8 +2,8 @@
 
 ###############################################################################
 # TYPO3 Installation Script
-# Supports TYPO3 v12 LTS and v13 LTS
-# Optimized for Ubuntu 20.04, 22.04, and 24.04
+# Supports TYPO3 v12 LTS, v13 LTS, and v14 LTS
+# Optimized for Ubuntu 22.04, 24.04, and 26.04
 ###############################################################################
 
 # Get script directory — must come first so utils.sh can be sourced early
@@ -61,7 +61,7 @@ overwritten without further warning.
 
 Before running this script, ensure you have:
 
-  1. A freshly installed Ubuntu 22.04 or 24.04
+  1. A freshly installed Ubuntu 22.04, 24.04, or 26.04
   2. Updated the system and rebooted:
        apt update && apt --assume-yes dist-upgrade && apt --assume-yes autoremove
        reboot
@@ -107,6 +107,7 @@ fi
 if ! isStepComplete "dependencies"; then
   installDependencies
   installSoftware
+  configureImageMagick
   installComposer
   markStepComplete "dependencies"
 fi

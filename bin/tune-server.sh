@@ -18,9 +18,10 @@ source "${SCRIPT_DIR_TUNE}/../lib/utils.sh"
 
 # ── Tuning ratios (adjust if needed) ──────────────────────────────────────────
 
-PHP_WORKER_MB=80      # Estimated RAM per PHP-FPM worker (TYPO3: ~80 MB)
+PHP_WORKER_MB=120     # Estimated RAM per PHP-FPM worker (TYPO3 v13+: ~120 MB; memory_limit is 512M)
 PHP_RAM_RATIO=40      # % of total RAM reserved for the primary PHP-FPM version
 MARIADB_RAM_RATIO=35  # % of total RAM for InnoDB buffer pool
+PHP_MAX_WORKERS=60    # Hard cap: beyond this, TYPO3 gains nothing and flock/session contention increases
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -161,7 +162,8 @@ CPU_CORES=$(nproc)
 # ── Calculate primary PHP-FPM values ─────────────────────────────────────────
 
 PHP_MAX_CHILDREN=$(( TOTAL_RAM_MB * PHP_RAM_RATIO / 100 / PHP_WORKER_MB ))
-[ "${PHP_MAX_CHILDREN}" -lt 2 ] && PHP_MAX_CHILDREN=2
+[ "${PHP_MAX_CHILDREN}" -lt 2 ]                  && PHP_MAX_CHILDREN=2
+[ "${PHP_MAX_CHILDREN}" -gt "${PHP_MAX_WORKERS}" ] && PHP_MAX_CHILDREN="${PHP_MAX_WORKERS}"
 
 PHP_START_SERVERS=$(( PHP_MAX_CHILDREN / 4 ))
 [ "${PHP_START_SERVERS}" -lt 1 ] && PHP_START_SERVERS=1
