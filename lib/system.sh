@@ -40,7 +40,8 @@ installSoftware() {
   apt --assume-yes install nginx-full apache2-utils \
     "php${phpVersion}"-{fpm,cli,common,curl,zip,gd,mysql,xml,mbstring,intl,yaml,soap,apcu,fileinfo} \
     redis-server mariadb-server \
-    imagemagick libheif1 ghostscript git tig zip unzip catdoc argon2 file zsh zsh-syntax-highlighting \
+    imagemagick libheif1 ghostscript poppler-utils libimage-exiftool-perl \
+    git tig zip unzip catdoc argon2 file zsh zsh-syntax-highlighting \
     dos2unix jq webp brotli \
     update-notifier-common
 
