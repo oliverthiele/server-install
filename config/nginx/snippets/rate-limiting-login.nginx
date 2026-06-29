@@ -1,0 +1,4 @@
+# Rate limiting for TYPO3 login paths
+# This file is overwritten during installation by writeRateLimitingLoginSnippet()
+# with the configured login paths (typo3LoginPathDE / typo3LoginPathEN).
+# Do not edit — it will be regenerated on each install run.

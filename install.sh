@@ -30,6 +30,7 @@ source "${SCRIPT_DIR}/lib/nginx.sh"
 source "${SCRIPT_DIR}/lib/typo3.sh"
 source "${SCRIPT_DIR}/lib/users.sh"
 source "${SCRIPT_DIR}/lib/security.sh"
+source "${SCRIPT_DIR}/lib/fail2ban.sh"
 
 # Reboot check – Ubuntu writes this file after kernel or libc updates.
 # Placed after source so warn() and color variables are available.
@@ -161,27 +162,33 @@ if ! isStepComplete "nginx_setup"; then
   markStepComplete "nginx_setup"
 fi
 
-# Step 9: SSL/TLS and logging configuration
+# Step 9: Install and configure fail2ban
+if ! isStepComplete "fail2ban_setup"; then
+  installFail2ban
+  markStepComplete "fail2ban_setup"
+fi
+
+# Step 10: SSL/TLS and logging configuration
 if ! isStepComplete "ssl_and_logging"; then
   configureSSLHardening
   setupLogrotate
   markStepComplete "ssl_and_logging"
 fi
 
-# Step 10: Setup users and permissions
+# Step 11: Setup users and permissions
 if ! isStepComplete "users_and_permissions"; then
   configureWwwUser
   setPermissions
   markStepComplete "users_and_permissions"
 fi
 
-# Step 11: Install Node.js for www-data (for frontend builds)
+# Step 12: Install Node.js for www-data (for frontend builds)
 if ! isStepComplete "nodejs_install"; then
   installNodeForWwwData
   markStepComplete "nodejs_install"
 fi
 
-# Step 12: Finish
+# Step 13: Finish
 if ! isStepComplete "finalization"; then
   finish
   markStepComplete "finalization"

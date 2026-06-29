@@ -57,6 +57,11 @@ DATABASE_NAME="${databaseName:-}"
 DATABASE_HOST="${databaseHost:-localhost}"
 ENCRYPTION_KEY="${encryptionKey:-}"
 REDIS_PASS="${redisPassword:-}"
+
+# fail2ban / rate limiting
+TYPO3_LOGIN_PATH_DE="${typo3LoginPathDE:-/anmeldung/}"
+TYPO3_LOGIN_PATH_EN="${typo3LoginPathEN:-/en/login/}"
+FAIL2BAN_IGNOREIP="${fail2banIgnoreIp:-}"
 EOL
   chmod 600 "${CONFIG_FILE}"
 }
@@ -102,6 +107,9 @@ loadConfig() {
     databaseHost="${DATABASE_HOST}"
     encryptionKey="${ENCRYPTION_KEY}"
     redisPassword="${REDIS_PASS}"
+    typo3LoginPathDE="${TYPO3_LOGIN_PATH_DE:-/anmeldung/}"
+    typo3LoginPathEN="${TYPO3_LOGIN_PATH_EN:-/en/login/}"
+    fail2banIgnoreIp="${FAIL2BAN_IGNOREIP:-}"
 
     # Export variables for use in other scripts
     export ubuntuVersion phpVersion requiresPhpPpa typo3Version typo3MajorVersion typo3CliName
@@ -110,6 +118,7 @@ loadConfig() {
     export serverDomain adminEmail adminRealName botFilterMode systemPass
     export enableBasicAuth basicAuthUser basicAuthPassword
     export databaseUser databasePassword databaseName databaseHost encryptionKey redisPassword
+    export typo3LoginPathDE typo3LoginPathEN fail2banIgnoreIp
 
     # Also export path to php.ini for PHP configuration
     export pathToPhpIni="/etc/php/${phpVersion}/fpm/php.ini"
@@ -164,7 +173,7 @@ showProgress() {
   completed_steps=${completed_steps:-0}
 
   # Define total expected steps (adjust as needed)
-  total_steps=12
+  total_steps=13
 
   if [ "${completed_steps}" -gt 0 ]; then
     echo "Completed: ${completed_steps}/${total_steps} steps"

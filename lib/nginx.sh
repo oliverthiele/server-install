@@ -188,6 +188,29 @@ EOF
   fi
 }
 
+writeRateLimitingLoginSnippet() {
+  local targetFile="/etc/nginx/snippets/rate-limiting-login.nginx"
+
+  echo "INFO Writing rate-limiting login snippet"
+
+  [ -z "${typo3LoginPathDE}" ] && die "typo3LoginPathDE is not set — cannot write rate-limiting-login.nginx"
+  [ -z "${typo3LoginPathEN}" ] && die "typo3LoginPathEN is not set — cannot write rate-limiting-login.nginx"
+  [ -z "${phpVersion}" ]       && die "phpVersion is not set — cannot write rate-limiting-login.nginx"
+
+  cat > "${targetFile}" <<EOF
+# TYPO3 login rate limiting — generated during installation
+# Paths: ${typo3LoginPathDE} (DE) and ${typo3LoginPathEN} (EN)
+# Overwritten on each install run — do not edit manually.
+
+# Applies rate limiting to TYPO3 frontend login paths.
+# Exceeding the zone rate (see rate-limiting-zones.nginx) returns 429.
+location ~ ^(${typo3LoginPathDE}|${typo3LoginPathEN}) {
+    limit_req zone=typo3_login burst=2 nodelay;
+    try_files \$uri \$uri/ /index.php\$is_args\$args;
+}
+EOF
+}
+
 compileNginxWithBrotli() {
   echo "INFO Compiling Nginx with Brotli module for version ${nginxVersion}"
 
@@ -328,6 +351,17 @@ EOL
   # Write bot-filter snippet based on selected mode
   writeBotFilterSnippet "${botFilterMode:-production}"
 
+  # Write login rate-limiting snippet with configured login paths
+  writeRateLimitingLoginSnippet
+
+  # Add rate-limiting zones include to nginx.conf http block (before sites-enabled)
+  if ! grep -q "rate-limiting-zones.nginx" /etc/nginx/nginx.conf; then
+    sed -i \
+      's|^\(\s*\)include /etc/nginx/sites-enabled/\*;|\1include /etc/nginx/snippets/rate-limiting-zones.nginx;\n\1include /etc/nginx/sites-enabled/*;|' \
+      /etc/nginx/nginx.conf
+    echo "INFO Added rate-limiting-zones.nginx to nginx.conf"
+  fi
+
   # Remove default site
   if [ -f "/etc/nginx/sites-available/default" ]; then
     rm /etc/nginx/sites-available/default
@@ -410,6 +444,9 @@ ${catchAllConfig}server {
 
     # Monit Web Interface (uncomment if Monit is installed)
     # include /etc/nginx/snippets/monit.nginx;
+
+    # Login rate limiting (paths and zones defined during installation)
+    include /etc/nginx/snippets/rate-limiting-login.nginx;
 
     # Main location
     location / {

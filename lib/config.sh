@@ -136,9 +136,34 @@ setVariables() {
   fi
   echo ""
 
+  # TYPO3 login paths for nginx rate limiting and fail2ban
+  echo "---------------------------------------"
+  echo "TYPO3 frontend login paths (used for nginx rate limiting and fail2ban)."
+  echo "Enter the URL paths for the login pages of your TYPO3 site."
+  read -rp "Login path DE [/anmeldung/]: " input
+  typo3LoginPathDE=${input:-/anmeldung/}
+
+  read -rp "Login path EN [/en/login/]: " input
+  typo3LoginPathEN=${input:-/en/login/}
+
+  echo "Login paths: ${typo3LoginPathDE} (DE), ${typo3LoginPathEN} (EN)"
+  echo ""
+
+  # fail2ban: additional IP addresses / ranges to whitelist
+  echo "---------------------------------------"
+  echo "Additional fail2ban ignoreip — IPs or CIDR ranges that are never banned."
+  echo "127.0.0.1/8 and ::1 are always included. Add your VPN or office IP here."
+  read -rp "Additional ignoreip (space-separated, Enter to skip): " input
+  fail2banIgnoreIp=${input:-}
+  if [[ -n "${fail2banIgnoreIp}" ]]; then
+    echo "fail2ban ignoreip: 127.0.0.1/8 ::1 ${fail2banIgnoreIp}"
+  fi
+  echo ""
+
   # Export variables for use in other modules
   export wwwRoot composerDirectory typo3PublicDirectory
   export typo3CliName pathSettings pathAdditionalSettings systemPass
   export serverDomain adminEmail adminRealName botFilterMode
   export enableBasicAuth basicAuthUser basicAuthPassword
+  export typo3LoginPathDE typo3LoginPathEN fail2banIgnoreIp
 }

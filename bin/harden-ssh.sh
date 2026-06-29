@@ -227,6 +227,19 @@ else
   }
 fi
 
+# ── Update fail2ban sshd jail if fail2ban is running ─────────────────────────
+
+if command -v fail2ban-client > /dev/null 2>&1 && systemctl is-active --quiet fail2ban; then
+  if [[ "${DRY_RUN}" != "true" ]]; then
+    JAIL_LOCAL="/etc/fail2ban/jail.local"
+    if [[ -f "${JAIL_LOCAL}" ]]; then
+      sed -i "/^\[sshd\]/,/^\[/{s|^port[[:space:]]*=.*|port     = ${NEW_PORT}|}" "${JAIL_LOCAL}"
+      systemctl restart fail2ban
+      echo "INFO fail2ban: sshd jail updated for port ${NEW_PORT} and restarted"
+    fi
+  fi
+fi
+
 # ── Summary ───────────────────────────────────────────────────────────────────
 
 echo ""
