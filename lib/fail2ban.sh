@@ -40,22 +40,29 @@ maxretry = 3
 findtime = 5m
 bantime  = 24h
 
+# port = http,https on all nginx jails: without it, custom jails fall back to the
+# [DEFAULT] port list, which with the nftables banaction can cover all ports —
+# a web-scanner hit would then also lock the attacker (or a false positive) out of SSH.
 [nginx-http-auth]
 enabled  = true
+port     = http,https
 maxretry = 3
 
 [nginx-botsearch]
 enabled  = true
+port     = http,https
 maxretry = 2
 bantime  = 24h
 
 [nginx-limit-req]
 enabled  = true
+port     = http,https
 maxretry = 5
 bantime  = 1h
 
 [nginx-sqli-lfi]
 enabled  = true
+port     = http,https
 filter   = nginx-sqli-lfi
 maxretry = 1
 bantime  = 24h
@@ -64,6 +71,7 @@ logpath  = /var/log/nginx/access.log
 
 [nginx-4xx]
 enabled  = true
+port     = http,https
 filter   = nginx-4xx
 maxretry = 20
 findtime = 5m
@@ -72,6 +80,7 @@ logpath  = /var/log/nginx/access.log
 
 [nginx-login-ratelimit]
 enabled  = true
+port     = http,https
 filter   = nginx-login-ratelimit
 maxretry = 3
 findtime = 5m
@@ -80,6 +89,7 @@ logpath  = /var/log/nginx/access.log
 
 [typo3-fe-login]
 enabled  = true
+port     = http,https
 filter   = typo3-fe-login
 maxretry = 5
 findtime = 10m
@@ -102,11 +112,18 @@ _writeFail2banFilters() {
 
   # SQL injection, local file inclusion, and XSS patterns.
   # %% is required for literal % in Python ConfigParser interpolation (fail2ban).
+  # NOTE: fail2ban removes the matched timestamp from the line BEFORE applying
+  # failregex, so the date brackets are usually empty at match time — the
+  # bracket pattern must therefore be \[[^\]]*\] (zero or more), never + .
   cat > /etc/fail2ban/filter.d/nginx-sqli-lfi.conf <<'EOF'
 [Definition]
 # Detect SQL injection, LFI, and XSS attempts in nginx access logs.
+# The second line catches reconnaissance probes for paths that never exist on a
+# TYPO3 site (WordPress logins, dotfiles, phpMyAdmin) — an immediate ban signal.
+# (?i) makes matching case-insensitive (attackers vary case to evade filters).
 # %% encodes a literal % sign for Python ConfigParser interpolation.
-failregex = ^<HOST> \S+ \S+ \[[^\]]+\] "(?:GET|POST|HEAD) [^"]*(union[\+%%20 ]+(?:all[\+%%20 ]+)?select|select[\+%%20 ]+[^"]+[\+%%20 ]+from[\+%%20 ]|insert[\+%%20 ]+into[\+%%20 ]|drop[\+%%20 ]+table[\+%%20 ]|'[\+%%20 ]*or[\+%%20 ]*'|/etc/passwd|/etc/shadow|/proc/self/|\.\.%%2[Ff]|%%2[Ee]%%2[Ee]%%2[Ff]|\.\.\/\.\.\/|<script[\s>]|javascript:|eval\(base64_decode|eval\(base64)[^"]*" \d+ \d+
+failregex = (?i)^<HOST> \S+ \S+ \[[^\]]*\] "(?:GET|POST|HEAD) [^"]*(union[\+%%20 ]+(?:all[\+%%20 ]+)?select|select[\+%%20 ]+[^"]+[\+%%20 ]+from[\+%%20 ]|insert[\+%%20 ]+into[\+%%20 ]|drop[\+%%20 ]+table[\+%%20 ]|'[\+%%20 ]*or[\+%%20 ]*'|/etc/passwd|/etc/shadow|/proc/self/|\.\.%%2[Ff]|%%2[Ee]%%2[Ee]%%2[Ff]|\.\.\/\.\.\/|<script[\s>]|javascript:|eval\(base64_decode|eval\(base64)[^"]*" \d+ \d+
+            (?i)^<HOST> \S+ \S+ \[[^\]]*\] "(?:GET|POST|HEAD) [^"]*(wp-login\.php|wp-admin/|xmlrpc\.php|phpmyadmin|/\.env(?:\s|\?|\.example)|/\.git/)[^"]*" \d+ \d+
 
 ignoreregex =
 EOF
@@ -116,7 +133,7 @@ EOF
 [Definition]
 # Detect repeated 4xx responses, excluding 400 and 404 which are too noisy.
 # Catches scanners, credential stuffers, and probing tools.
-failregex = ^<HOST> \S+ \S+ \[[^\]]+\] "[^"]+" (?:40[1-35-9]|4[1-9]\d) \d+
+failregex = ^<HOST> \S+ \S+ \[[^\]]*\] "[^"]+" (?:40[1-35-9]|4[1-9]\d) \d+
 
 ignoreregex =
 EOF
@@ -126,37 +143,54 @@ EOF
 [Definition]
 # Detect IPs that repeatedly trigger nginx rate limiting on login paths.
 # nginx returns 429 when limit_req is exceeded (see rate-limiting-zones.nginx).
-failregex = ^<HOST> \S+ \S+ \[[^\]]+\] "[^"]+" 429 \d+
+failregex = ^<HOST> \S+ \S+ \[[^\]]*\] "[^"]+" 429 \d+
 
 ignoreregex =
 EOF
 
-  # TYPO3 frontend login — repeated POST to configured login paths
+  # TYPO3 frontend login — repeated POST to configured login paths.
+  # Only status 200 (login form shown again) and 403 count as failures.
+  # A successful TYPO3 login redirects with 302/303, so users who log in
+  # several times in quick succession are never counted towards a ban.
   cat > /etc/fail2ban/filter.d/typo3-fe-login.conf <<EOF
 [Definition]
 # Detect repeated POST requests to TYPO3 frontend login paths.
 # Paths configured during installation: ${typo3LoginPathDE} (DE) and ${typo3LoginPathEN} (EN)
-failregex = ^<HOST> \S+ \S+ \[[^\]]+\] "POST (?:${typo3LoginPathDE}|${typo3LoginPathEN})[^"]*" \d+ \d+
+# Status filter: 200/403 = failed attempt, 30x redirect = successful login (not counted).
+failregex = ^<HOST> \S+ \S+ \[[^\]]*\] "POST (?:${typo3LoginPathDE}|${typo3LoginPathEN})[^"]*" (?:200|403) \d+
 
 ignoreregex =
 EOF
 }
 
 _testFail2banFilters() {
-  echo "INFO Testing fail2ban custom filter syntax..."
+  echo "INFO Testing fail2ban custom filters against synthetic attack lines..."
 
-  local logFile="/var/log/nginx/access.log"
-  if [[ ! -f "${logFile}" ]]; then
-    warn "nginx access log not found — skipping fail2ban-regex tests (filters will activate once nginx writes logs)"
-    return 0
-  fi
+  # Positive-control test: every filter must match a synthetic log line it was
+  # built to catch. A filter that parses cleanly but matches nothing is broken
+  # (this happened once: fail2ban strips the timestamp before matching, so a
+  # \[[^\]]+\] date pattern silently never matched — caught only by this test).
+  local sampleLog
+  sampleLog=$(mktemp)
+  cat > "${sampleLog}" <<EOF
+203.0.113.5 - - [10/Jul/2026:14:00:00 +0000] "GET /?id=1+UNION+SELECT+password HTTP/1.1" 200 1234
+203.0.113.5 - - [10/Jul/2026:14:00:01 +0000] "GET /wp-login.php HTTP/1.1" 404 99
+203.0.113.5 - - [10/Jul/2026:14:00:02 +0000] "GET /admin/secret HTTP/1.1" 403 99
+203.0.113.5 - - [10/Jul/2026:14:00:03 +0000] "GET /some-page HTTP/1.1" 429 99
+203.0.113.5 - - [10/Jul/2026:14:00:04 +0000] "POST ${typo3LoginPathDE} HTTP/1.1" 200 5000
+EOF
 
   local filterName
   for filterName in nginx-sqli-lfi nginx-4xx nginx-login-ratelimit typo3-fe-login; do
-    if fail2ban-regex "${logFile}" "/etc/fail2ban/filter.d/${filterName}.conf" > /dev/null 2>&1; then
+    if fail2ban-regex "${sampleLog}" "/etc/fail2ban/filter.d/${filterName}.conf" 2>/dev/null \
+        | grep -qE "^Lines: [0-9]+ lines, [0-9]+ ignored, [1-9][0-9]* matched"; then
       echo "INFO fail2ban filter OK: ${filterName}"
     else
-      warn "fail2ban filter syntax warning: ${filterName} — check /etc/fail2ban/filter.d/${filterName}.conf"
+      warn "fail2ban filter matched NOTHING in the positive-control test: ${filterName}"
+      warn "  → check /etc/fail2ban/filter.d/${filterName}.conf — the jail is not protecting anything"
     fi
   done
+
+  rm -f "${sampleLog}"
+  return 0
 }
