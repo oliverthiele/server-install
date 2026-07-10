@@ -211,6 +211,74 @@ location ~ ^(${typo3LoginPathDE}|${typo3LoginPathEN}) {
 EOF
 }
 
+writeBackendIpRestrictionSnippet() {
+  local targetFile="/etc/nginx/snippets/backend-ip-restriction.nginx"
+
+  echo "INFO Writing backend IP restriction snippet (disabled by default)"
+
+  [ -z "${phpVersion}" ] && die "phpVersion is not set — cannot write backend-ip-restriction.nginx"
+
+  cat > "${targetFile}" <<EOF
+# TYPO3 Backend IP Restriction — OPTIONAL, disabled by default
+#
+# Restricts /typo3/ (backend + install tool routes) to an IP allowlist.
+# Useful when the backend is only used from known locations (office, VPN).
+# This is an additional layer — it does not replace strong backend passwords
+# and MFA, and it does not protect the frontend.
+#
+# HOW TO ENABLE:
+#   1. Replace the example IPs below with your own (office, VPN, home).
+#      The examples use RFC 5737/3849 documentation ranges — they match nobody.
+#   2. Uncomment the include line in /etc/nginx/sites-available/typo3.nginx.
+#   3. TYPO3 v12/v13 only: comment out the "location /typo3/" and
+#      "location ~ ^/typo3/(.*/)?Resources/Public/" blocks in
+#      /etc/nginx/snippets/typo3-rewrite.nginx — this snippet replaces them.
+#      If you forget this, "nginx -t" fails with a duplicate location error
+#      (intentional: better a loud error than a silently bypassed allowlist).
+#   4. nginx -t && systemctl reload nginx
+#
+# Backend assets under /typo3/ are also IP-restricted — that is intended.
+
+location = /typo3 {
+    return 301 /typo3/;
+}
+
+location ^~ /typo3/ {
+    # Replace with your allowed IPs / ranges:
+    allow 203.0.113.10;        # example: office IP
+    allow 198.51.100.0/24;     # example: VPN range
+    # allow 2001:db8::/32;     # example: IPv6 range
+    deny all;
+
+    try_files \$uri \$uri/ /index.php\$is_args\$args;
+
+    location ~ \.php\$ {
+        fastcgi_split_path_info ^(.+\.php)(/.+)\$;
+        try_files \$fastcgi_script_name =404;
+
+        set \$path_info \$fastcgi_path_info;
+        fastcgi_param PATH_INFO \$path_info;
+        fastcgi_index index.php;
+        include fastcgi.conf;
+
+        fastcgi_buffer_size 32k;
+        fastcgi_buffers 8 16k;
+
+        fastcgi_connect_timeout 240s;
+        fastcgi_read_timeout    240s;
+        fastcgi_send_timeout    240s;
+
+        # TYPO3 Context — must match the value in the main PHP location block
+        fastcgi_param TYPO3_CONTEXT Development;
+        #fastcgi_param TYPO3_CONTEXT Production/Staging;
+        #fastcgi_param TYPO3_CONTEXT Production;
+
+        fastcgi_pass unix:/var/run/php/php${phpVersion}-fpm.sock;
+    }
+}
+EOF
+}
+
 compileNginxWithBrotli() {
   echo "INFO Compiling Nginx with Brotli module for version ${nginxVersion}"
 
@@ -354,6 +422,9 @@ EOL
   # Write login rate-limiting snippet with configured login paths
   writeRateLimitingLoginSnippet
 
+  # Write backend IP restriction snippet (opt-in — include stays commented out)
+  writeBackendIpRestrictionSnippet
+
   # Add rate-limiting zones include to nginx.conf http block (before sites-enabled)
   if ! grep -q "rate-limiting-zones.nginx" /etc/nginx/nginx.conf; then
     sed -i \
@@ -444,6 +515,9 @@ ${catchAllConfig}server {
 
     # Monit Web Interface (uncomment if Monit is installed)
     # include /etc/nginx/snippets/monit.nginx;
+
+    # TYPO3 backend IP allowlist (opt-in — edit the snippet first, see instructions inside)
+    # include /etc/nginx/snippets/backend-ip-restriction.nginx;
 
     # Login rate limiting (paths and zones defined during installation)
     include /etc/nginx/snippets/rate-limiting-login.nginx;
