@@ -230,7 +230,7 @@ getUbuntuVersionAndSetPhpVersion() {
 
   if [[ "${ubuntuVersion}" == "24.04" ]]; then
     echo "  1) PHP ${defaultPhpVersion} (Ubuntu default repository)"
-    echo "  2) PHP 8.4 (requires ondrej/php PPA)"
+    echo "  2) PHP 8.4 (requires packages.sury.org repository)"
     if [[ "${recommendedPhpVersion}" == "8.4" ]]; then
       read -rp "Option [2]: " phpChoice
     else
@@ -248,7 +248,7 @@ getUbuntuVersionAndSetPhpVersion() {
       ;;
     esac
   elif [[ "${ubuntuVersion}" == "26.04" ]]; then
-    # On Ubuntu 26.04, the minimum installable PHP is 8.4 (via PPA).
+    # On Ubuntu 26.04, the minimum installable PHP is 8.4 (via packages.sury.org).
     # TYPO3 versions that require PHP max < 8.4 are not supported.
     if [[ -n "${TYPO3_PHP_MAX:-}" ]]; then
       if [[ "$(echo "8.4 ${TYPO3_PHP_MAX}" | awk '{print ($1 > $2)}')" == "1" ]]; then
@@ -256,8 +256,8 @@ getUbuntuVersionAndSetPhpVersion() {
       fi
     fi
 
-    echo "  1) PHP ${defaultPhpVersion} (Ubuntu default repository, no PPA required)"
-    echo "  2) PHP 8.4 (requires ondrej/php PPA)"
+    echo "  1) PHP ${defaultPhpVersion} (Ubuntu default repository, no extra repository required)"
+    echo "  2) PHP 8.4 (requires packages.sury.org repository)"
     read -rp "Option [1]: " phpChoice
 
     case "${phpChoice}" in

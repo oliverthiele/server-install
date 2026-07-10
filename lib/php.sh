@@ -17,8 +17,8 @@ installPhpRedis() {
   fi
 
   if [[ "${requiresPhpPpa}" == 'true' ]]; then
-    # ondrej/php PPA provides up-to-date php-redis packages for all PHP versions
-    echo "INFO Installing php${phpVersion}-redis via ondrej/php PPA"
+    # packages.sury.org provides up-to-date php-redis packages for all PHP versions
+    echo "INFO Installing php${phpVersion}-redis via packages.sury.org"
     apt --assume-yes install "php${phpVersion}-redis"
     service "php${phpVersion}-fpm" restart
   elif [[ "${phpVersion}" == "8.3" && "${ubuntuVersion}" == "24.04" ]]; then

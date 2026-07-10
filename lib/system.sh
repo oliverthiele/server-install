@@ -16,10 +16,32 @@ installDependencies() {
   apt install -y build-essential "${pcrePackages}" zlib1g zlib1g-dev libssl-dev wget git libbrotli-dev
 }
 
-addPhpPpa() {
-  echo "INFO Adding ondrej/php PPA for PHP ${phpVersion}"
-  apt --assume-yes install software-properties-common
-  add-apt-repository --yes ppa:ondrej/php
+# Adds the packages.sury.org PHP repository — successor to the ondrej/php Launchpad PPA,
+# which Ondřej Surý is discontinuing due to unreliable Launchpad build infrastructure.
+# Idempotent — skips if the repository is already configured.
+# Usage: addPhpRepo [versionLabel]  – versionLabel is only used for the log message.
+addPhpRepo() {
+  local versionLabel="${1:-${phpVersion:-}}"
+  local suryList="/etc/apt/sources.list.d/php.list"
+  local suryKeyring="/usr/share/keyrings/debsuryorg-archive-keyring.gpg"
+
+  if [[ -f "${suryList}" ]] && grep -q "packages.sury.org" "${suryList}"; then
+    echo "INFO packages.sury.org PHP repository already configured"
+    return
+  fi
+
+  echo "INFO Adding packages.sury.org PHP repository${versionLabel:+ for PHP ${versionLabel}}"
+  apt update
+  apt --assume-yes install lsb-release ca-certificates curl
+
+  local keyringDeb
+  keyringDeb="$(mktemp --suffix=.deb)"
+  curl -sSLf -o "${keyringDeb}" https://packages.sury.org/debsuryorg-archive-keyring.deb \
+    || die "Download of debsuryorg-archive-keyring.deb failed"
+  dpkg -i "${keyringDeb}"
+  rm -f "${keyringDeb}"
+
+  echo "deb [signed-by=${suryKeyring}] https://packages.sury.org/php/ $(lsb_release -sc) main" > "${suryList}"
   apt update
 }
 
@@ -27,7 +49,7 @@ installSoftware() {
   echo "INFO Install System (nginx, php ${phpVersion}, MySQL, Redis, ...)"
 
   if [[ "${requiresPhpPpa}" == 'true' ]]; then
-    addPhpPpa
+    addPhpRepo
   fi
 
   # Install AVIF shared library before php-gd so GD AVIF support is available at runtime.

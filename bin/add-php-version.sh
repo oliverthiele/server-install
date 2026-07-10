@@ -14,6 +14,8 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../lib/utils.sh
 source "${SCRIPT_DIR}/../lib/utils.sh"
+# shellcheck source=../lib/system.sh
+source "${SCRIPT_DIR}/../lib/system.sh"
 
 # ── Parse arguments ───────────────────────────────────────────────────────────
 
@@ -86,34 +88,29 @@ fi
 
 UBUNTU_VERSION=$(lsb_release -rs 2>/dev/null || echo "unknown")
 
-# ── Check if ondrej/php PPA is needed ────────────────────────────────────────
+# ── Check if the packages.sury.org PHP repository is needed ──────────────────
 # Required for PHP 8.4+ on Ubuntu 24.04, and for any version on Ubuntu 22.04/20.04
 # that is not in the default repositories.
 
-REQUIRES_PPA=false
+REQUIRES_PHP_REPO=false
 case "${UBUNTU_VERSION}" in
   24.04)
     if [[ "${TARGET_VERSION}" == "8.4" ]] || [[ "$(echo "${TARGET_VERSION} 8.4" | awk '{print ($1 > $2)}')" == "1" ]]; then
-      REQUIRES_PPA=true
+      REQUIRES_PHP_REPO=true
     fi
     ;;
   22.04|20.04)
-    REQUIRES_PPA=true
+    REQUIRES_PHP_REPO=true
     ;;
 esac
 
-if $REQUIRES_PPA; then
-  if ! grep -r "ondrej/php" /etc/apt/sources.list.d/ &>/dev/null; then
-    echo "INFO ondrej/php PPA required for PHP ${TARGET_VERSION} on Ubuntu ${UBUNTU_VERSION}"
-    if ! $DRY_RUN; then
-      apt --assume-yes install software-properties-common
-      add-apt-repository --yes ppa:ondrej/php
-      apt update
-    else
-      echo "  [dry-run] Would add ppa:ondrej/php and run apt update"
-    fi
+if $REQUIRES_PHP_REPO; then
+  if [[ -f /etc/apt/sources.list.d/php.list ]] && grep -q "packages.sury.org" /etc/apt/sources.list.d/php.list; then
+    echo "INFO packages.sury.org PHP repository already configured"
+  elif ! $DRY_RUN; then
+    addPhpRepo "${TARGET_VERSION}"
   else
-    echo "INFO ondrej/php PPA already configured"
+    echo "  [dry-run] Would add the packages.sury.org PHP repository"
   fi
 fi
 
@@ -178,8 +175,8 @@ echo "INFO Installing PHP ${TARGET_VERSION} and modules..."
 apt --assume-yes install "${TARGET_PACKAGES[@]}" \
   || die "Package installation failed — check apt output above"
 
-# Pin CLI version if PPA is used (prevents newer version from becoming default)
-if $REQUIRES_PPA && [ -f "/usr/bin/php${TARGET_VERSION}" ]; then
+# Pin CLI version if the sury.org repo is used (prevents newer version from becoming default)
+if $REQUIRES_PHP_REPO && [ -f "/usr/bin/php${TARGET_VERSION}" ]; then
   update-alternatives --set php "/usr/bin/php${TARGET_VERSION}" 2>/dev/null || true
 fi
 

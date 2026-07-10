@@ -7,12 +7,13 @@ Bash-based installer for TYPO3 on Ubuntu servers. Supports TYPO3 v12 LTS and v13
 ```
 install.sh          # Main entry point, orchestrates all steps
 bin/
-  tune-server.sh    # Resource tuning: PHP-FPM + MariaDB based on RAM/CPU (--dry-run supported)
-  harden-ssh.sh     # Interactive SSH hardening: port change, key-only auth, UFW, Hetzner-aware
+  tune-server.sh       # Resource tuning: PHP-FPM + MariaDB based on RAM/CPU (--dry-run supported)
+  harden-ssh.sh        # Interactive SSH hardening: port change, key-only auth, UFW, Hetzner-aware
+  migrate-php-repo.sh  # Switches an existing server from ppa:ondrej/php to packages.sury.org
 lib/
   config.sh         # setVariables() – interactive prompts for TYPO3 version, domain, email
   utils.sh          # getUbuntuVersionAndSetPhpVersion(), generatePassword(), confirmInstallation()
-  system.sh         # installDependencies(), addPhpPpa(), installSoftware(), installComposer(), ...
+  system.sh         # installDependencies(), addPhpRepo(), installSoftware(), installComposer(), ...
   php.sh            # installPhpRedis(), optimizePhpSettings()
   nginx.sh          # configureNginx(), compileNginxWithBrotli(), configureBrotliInNginx()
   database.sh       # createDatabase(), cleanTargetDirectoryAndDatabase()
@@ -30,7 +31,7 @@ config/
 |------------------|-----------|-------------------------------------------------------|
 | `ubuntuVersion`  | utils.sh  | e.g. `24.04`                                          |
 | `phpVersion`     | utils.sh  | e.g. `8.3` or `8.4`                                   |
-| `requiresPhpPpa` | utils.sh  | `true` if ondrej/php PPA is needed (PHP 8.4 on 24.04) |
+| `requiresPhpPpa` | utils.sh  | `true` if the packages.sury.org PHP repository is needed (PHP 8.4 on 24.04) |
 | `pathToPhpIni`   | utils.sh  | `/etc/php/${phpVersion}/fpm/php.ini`                  |
 | `typo3Version`   | config.sh | e.g. `^13.4`                                          |
 | `serverDomain`   | config.sh | Domain or `_` for IP-based setup                      |
@@ -40,24 +41,31 @@ All variables are exported for use across sourced scripts.
 
 ## PHP Version Selection (Ubuntu 24.04)
 
-Ubuntu 24.04 ships PHP 8.3 by default. PHP 8.4 requires the **ondrej/php PPA** (`ppa:ondrej/php`).
+Ubuntu 24.04 ships PHP 8.3 by default. PHP 8.4 requires the **packages.sury.org** repository — the successor
+to the `ppa:ondrej/php` Launchpad PPA, which Ondřej Surý is discontinuing due to unreliable Launchpad build
+infrastructure (see `bin/migrate-php-repo.sh` for switching already-installed servers).
 
 When PHP 8.4 is selected:
 
 - `requiresPhpPpa=true` is set and persisted in the state config
-- `addPhpPpa()` in `system.sh` adds the PPA before package installation
-- After `apt install`, `update-alternatives --set php /usr/bin/php8.4` pins the CLI version (prevents the PPA's PHP 8.5
-  from becoming the default)
-- `installPhpRedis()` uses `apt install php8.4-redis` (ondrej/php provides current packages, no pecl needed)
+- `addPhpRepo()` in `system.sh` installs the sury.org keyring + apt source before package installation
+  (idempotent — skips if already configured). Also called from `bin/add-php-version.sh` when adding a PHP
+  version that needs it, so the repo-setup logic exists in one place only.
+- After `apt install`, `update-alternatives --set php /usr/bin/php8.4` pins the CLI version (prevents a newer
+  PHP from becoming the default)
+- `installPhpRedis()` uses `apt install php8.4-redis` (packages.sury.org provides current packages, no pecl
+  needed)
 
-For PHP 8.3 on Ubuntu 24.04 without PPA: php-redis is installed via `pecl` due to outdated Ubuntu packages.
+For PHP 8.3 on Ubuntu 24.04 without the extra repository: php-redis is installed via `pecl` due to outdated
+Ubuntu packages.
 
 ## State / Resume
 
 Installation progress is tracked in:
 
 - `/root/.typo3-install-state` – completed steps with timestamps
-- `/root/.typo3-install-config` – all configuration variables including `REQUIRES_PHP_PPA`
+- `/root/.typo3-install-config` – all configuration variables including `REQUIRES_PHP_PPA` (persisted key name;
+  now gates the packages.sury.org repository, not a PPA)
 
 Interrupted installations can be resumed; each step is guarded by `isStepComplete`.
 

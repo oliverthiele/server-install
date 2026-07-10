@@ -21,7 +21,7 @@ installations can be resumed at any step.
 |---------------------|-------------------------------------------------------------------------------------|
 | **TYPO3**           | v12.4 LTS, v13.4 LTS and v14 (interactive selection)                                |
 | **Ubuntu**          | 22.04, 24.04, 26.04 (recommended) — 20.04 legacy¹                                   |
-| **PHP**             | 8.1 / 8.3 / 8.4 — ondrej/php PPA for PHP 8.4 on 24.04                               |
+| **PHP**             | 8.1 / 8.3 / 8.4 — packages.sury.org repository for PHP 8.4 on 24.04                 |
 | **Web server**      | Nginx with dynamically compiled Brotli module                                       |
 | **Database**        | MariaDB with automated hardening                                                    |
 | **Cache**           | Redis with `requirepass` authentication, page and section cache pre-configured      |
@@ -539,6 +539,18 @@ redis-cli ping                    # Expected: PONG (requires -a <password> after
 php -m | grep redis               # PHP Redis extension loaded?
 bin/tune-server.sh --dry-run      # Review current tuning recommendations
 bin/toggle-php-slowlog.sh status  # Check slow log state
+```
+
+**`ondrej/php` PPA: "Repository ... changed its 'Label' value ... Use https://packages.sury.org/php/ instead"**
+
+Ondřej Surý is migrating PHP packages from the Launchpad PPA to `packages.sury.org`, since Launchpad's
+build infrastructure has become unreliable. `apt update` refuses the changed Release metadata until
+acknowledged:
+
+```bash
+apt update --allow-releaseinfo-change-label   # silences the warning, PPA stays in use
+bin/migrate-php-repo.sh --dry-run             # review the switch to packages.sury.org
+bin/migrate-php-repo.sh                       # switch the server's PHP source permanently
 ```
 
 TYPO3 v13 with a custom backend entry point — check `config/system/settings.yaml`:
