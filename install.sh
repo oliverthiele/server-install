@@ -230,5 +230,17 @@ else
   echo "INFO Dry-run preview:               bin/setup-deploy-user.sh --dry-run"
 fi
 
+# Optional: local database backup cron (safety net against operator errors)
+echo ""
+echo "Local database backups (every 6 hours, 7 days retention)."
+echo "Protects against operator errors only — off-site backups are still required."
+read -rp "Install database backup cron now? [Y/n] " backup_response
+if [[ ! "${backup_response}" =~ ^([nN])$ ]]; then
+  bash "${SCRIPT_DIR}/bin/backup-database.sh" --install-cron
+else
+  echo "INFO Skipped. Run manually anytime: bin/backup-database.sh --install-cron"
+  echo "INFO Dry-run preview:               bin/backup-database.sh --dry-run"
+fi
+
 # Show all remaining TODOs at the very end — after tuning and SSH hardening
 printNextSteps
