@@ -190,21 +190,21 @@ getNvmVersion() {
 installNode() {
   local nvmVersion
   nvmVersion=$(getNvmVersion)
-  echo "INFO Installing nvm ${nvmVersion} for root"
+  echo "INFO Installing nvm ${nvmVersion} for root (Node.js ${nodeVersion:-24})"
 
   curl -o- "https://raw.githubusercontent.com/nvm-sh/nvm/${nvmVersion}/install.sh" | bash
 
   export NVM_DIR="$HOME/.nvm"
   [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
-  nvm install 22
-  nvm use 22
+  nvm install "${nodeVersion:-24}"
+  nvm use "${nodeVersion:-24}"
 }
 
 installNodeForWwwData() {
   local nvmVersion
   nvmVersion=$(getNvmVersion)
-  echo "INFO Installing nvm ${nvmVersion} for www-data"
+  echo "INFO Installing nvm ${nvmVersion} for www-data (Node.js ${nodeVersion:-24})"
 
   sudo -u www-data -i bash <<EOF
   curl -o- "https://raw.githubusercontent.com/nvm-sh/nvm/${nvmVersion}/install.sh" | bash
@@ -212,8 +212,8 @@ installNodeForWwwData() {
   export NVM_DIR="\$HOME/.nvm"
   [ -s "\$NVM_DIR/nvm.sh" ] && . "\$NVM_DIR/nvm.sh"
 
-  nvm install 22
-  nvm use 22
+  nvm install ${nodeVersion:-24}
+  nvm use ${nodeVersion:-24}
 EOF
 }
 

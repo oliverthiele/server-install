@@ -9,6 +9,9 @@ install.sh          # Main entry point, orchestrates all steps
 bin/
   tune-server.sh       # Resource tuning: PHP-FPM + MariaDB based on RAM/CPU (--dry-run supported)
   harden-ssh.sh        # Interactive SSH hardening: port change, key-only auth, UFW, Hetzner-aware
+  setup-deploy-user.sh # Opt-in deploy user: own SSH login, sudo -u www-data, disable www-data login
+  backup-database.sh   # Local DB dumps (operator-error safety net): excludes log/cache/session data,
+                       # disk space check, retention, --install-cron for /etc/cron.d/typo3-db-backup
   migrate-php-repo.sh  # Switches an existing server from ppa:ondrej/php to packages.sury.org
 lib/
   config.sh         # setVariables() – interactive prompts for TYPO3 version, domain, email
@@ -17,7 +20,10 @@ lib/
   php.sh            # installPhpRedis(), optimizePhpSettings()
   nginx.sh          # configureNginx(), compileNginxWithBrotli(), configureBrotliInNginx()
   database.sh       # createDatabase(), cleanTargetDirectoryAndDatabase()
-  security.sh       # hardenSSH(), secureMariaDB(), optimizeKernel(), configureSSLHardening()
+  security.sh       # hardenSSH(), secureMariaDB(), optimizeKernel(), configureSSLHardening(),
+                    # configureUnattendedUpgrades()
+  fail2ban.sh       # installFail2ban() – jails (port=http,https) + custom filters (SQLi/LFI, 4xx,
+                    # login rate limit, TYPO3 FE login with 200/403 status filter)
   users.sh          # configureWwwUser(), setPermissions()
   typo3.sh          # installTypo3(), activateTypo3()
   state.sh          # saveConfig(), loadConfig(), markStepComplete(), isStepComplete()
@@ -35,6 +41,7 @@ config/
 | `pathToPhpIni`   | utils.sh  | `/etc/php/${phpVersion}/fpm/php.ini`                  |
 | `typo3Version`   | config.sh | e.g. `^13.4`                                          |
 | `serverDomain`   | config.sh | Domain or `_` for IP-based setup                      |
+| `nodeVersion`    | config.sh | Node.js major version for nvm installs, e.g. `24` (default) or `22` |
 | `adminEmail`     | config.sh | Used for Certbot, TYPO3 admin BE user email           |
 
 All variables are exported for use across sourced scripts.

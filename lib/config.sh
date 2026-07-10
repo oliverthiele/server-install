@@ -96,11 +96,28 @@ setVariables() {
 
   # Bot filter mode
   echo "---------------------------------------"
-  echo "Select bot filter mode:"
-  echo "  1) Staging  – block all AI crawlers and SEO scrapers (no indexing)"
-  echo "  2) Production – block abusive bots only, allow major AI assistants"
-  echo "     (ChatGPT, Claude, Perplexity, Gemini — for discoverability)"
-  echo "     Bytespider (Bytedance/TikTok) is always blocked due to abusive crawling."
+  echo "Nginx bot filter — blocks unwanted crawlers by User-Agent (HTTP 444, connection dropped)."
+  echo ""
+  echo "Blocked in BOTH modes:"
+  echo "  - SEO/marketing scrapers that harvest data commercially without bringing"
+  echo "    visitors (AhrefsBot, SemrushBot, MJ12bot, DotBot, ...)"
+  echo "  - Search engines without relevant traffic for most DE/EU sites"
+  echo "    (Baidu, Sogou, Yandex, PetalBot, Amazonbot, ...)"
+  echo "  - Bytespider (Bytedance/TikTok) — history of abusive high-volume crawling"
+  echo "  - Requests with an empty User-Agent header (typical for scrapers)"
+  echo ""
+  echo "Never blocked (allowlist): Google/Bing search, uptime monitoring (HetrixTools),"
+  echo "E2E test runners (Playwright)."
+  echo ""
+  echo "The difference between the modes is AI crawlers only:"
+  echo "  1) Staging – additionally blocks ALL AI crawlers and assistants"
+  echo "     (GPTBot, ClaudeBot, PerplexityBot, Google-Extended, CCBot, meta, Apple)."
+  echo "     For preview/staging systems that must not end up in any AI index."
+  echo "  2) Production – allows major AI assistants (ChatGPT, Claude, Perplexity,"
+  echo "     Gemini) so the site remains discoverable via AI search."
+  echo ""
+  echo "The list can be edited later in /etc/nginx/snippets/bot-filter.nginx,"
+  echo "individual AI crawlers can also be controlled per-site via robots.txt."
   read -rp 'Option [2]: ' botFilterOption
   case "${botFilterOption}" in
   1)
@@ -149,6 +166,23 @@ setVariables() {
   echo "Login paths: ${typo3LoginPathDE} (DE), ${typo3LoginPathEN} (EN)"
   echo ""
 
+  # Node.js version for frontend builds (installed via nvm for www-data)
+  echo "---------------------------------------"
+  echo "Select the Node.js version for frontend builds (installed via nvm):"
+  echo "  1) Node.js 24 (Active LTS, default)"
+  echo "  2) Node.js 22 (maintenance mode from October 2026 — for legacy builds)"
+  read -rp 'Option [1]: ' nodeOption
+  case "${nodeOption}" in
+  2)
+    nodeVersion='22'
+    ;;
+  *)
+    nodeVersion='24'
+    ;;
+  esac
+  echo "Node.js version: ${nodeVersion}"
+  echo ""
+
   # fail2ban: additional IP addresses / ranges to whitelist
   echo "---------------------------------------"
   echo "Additional fail2ban ignoreip — IPs or CIDR ranges that are never banned."
@@ -166,4 +200,5 @@ setVariables() {
   export serverDomain adminEmail adminRealName botFilterMode
   export enableBasicAuth basicAuthUser basicAuthPassword
   export typo3LoginPathDE typo3LoginPathEN fail2banIgnoreIp
+  export nodeVersion
 }

@@ -5,6 +5,50 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- fail2ban setup with nginx rate limiting: SSH + nginx jails, custom filters for SQL injection/LFI/XSS,
+  repeated 4xx responses, login rate-limit violations, and TYPO3 frontend logins; login paths and an
+  `ignoreip` allowlist are prompted during installation
+- `bin/setup-deploy-user.sh` — opt-in dedicated deploy user (own SSH login, `sudo -u www-data`, optional
+  deactivation of the direct www-data SSH login); also offered at the end of `install.sh`
+- Unattended security upgrades enabled during installation (`configureUnattendedUpgrades()`), automatic
+  reboots explicitly disabled
+- `backend-ip-restriction.nginx` snippet — opt-in IP allowlist for `/typo3/`, generated with the correct
+  PHP-FPM socket, disabled by default (commented include, RFC 5737 example IPs)
+- `bin/backup-database.sh` — local database dumps as a safety net against operator errors: schema of all
+  tables, data of `sys_log` / `sys_history` / `cache_*` / sessions excluded, disk space check before each
+  dump, 7-day retention, `--install-cron` for a 6-hour schedule; offered at the end of `install.sh`.
+  Documentation makes the scope explicit: local dumps do not replace off-site backups
+- `bin/migrate-php-repo.sh` — switch existing servers from `ppa:ondrej/php` to packages.sury.org
+
+### Changed
+
+- PHP repository for new installs switched from `ppa:ondrej/php` to packages.sury.org (successor
+  repository, Launchpad builds discontinued)
+- fail2ban: all nginx jails now set `port = http,https` — a web-scanner ban can no longer lock an IP out
+  of SSH via the nftables default port fallback
+- fail2ban `typo3-fe-login` filter only counts POST requests with status 200/403 — successful logins
+  (302/303 redirect) are never counted towards a ban
+- fail2ban SQLi/LFI filter matches case-insensitively (`UNION SELECT` in any casing) and bans immediately
+  on reconnaissance probes for `wp-login.php`, `wp-admin/`, `xmlrpc.php`, `/.env`, `/.git/`, phpMyAdmin
+- Bot filter prompt in the installer now explains in detail which bot categories are blocked in both
+  modes, what is never blocked, and that the two modes only differ in AI crawler handling
+- Node.js default raised from 22 to 24 (Active LTS; Node 22 enters maintenance mode in October 2026);
+  the version is now selectable during installation and persisted as `NODE_VERSION` in the state config
+
+### Fixed
+
+- fail2ban custom filters never matched at runtime: fail2ban strips the detected timestamp from the log
+  line before applying `failregex`, so the `\[[^\]]+\]` date pattern (one or more characters) silently
+  matched nothing — all four custom jails (`nginx-sqli-lfi`, `nginx-4xx`, `nginx-login-ratelimit`,
+  `typo3-fe-login`) were ineffective. Pattern changed to `\[[^\]]*\]`; `_testFail2banFilters()` now runs
+  a positive-control test with synthetic attack lines so a non-matching filter is reported during install
+
+---
+
 ## [1.3.0] — 2026-06-25
 
 ### Added

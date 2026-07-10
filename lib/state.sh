@@ -62,6 +62,9 @@ REDIS_PASS="${redisPassword:-}"
 TYPO3_LOGIN_PATH_DE="${typo3LoginPathDE:-/anmeldung/}"
 TYPO3_LOGIN_PATH_EN="${typo3LoginPathEN:-/en/login/}"
 FAIL2BAN_IGNOREIP="${fail2banIgnoreIp:-}"
+
+# Node.js (frontend builds via nvm)
+NODE_VERSION="${nodeVersion:-24}"
 EOL
   chmod 600 "${CONFIG_FILE}"
 }
@@ -110,6 +113,7 @@ loadConfig() {
     typo3LoginPathDE="${TYPO3_LOGIN_PATH_DE:-/anmeldung/}"
     typo3LoginPathEN="${TYPO3_LOGIN_PATH_EN:-/en/login/}"
     fail2banIgnoreIp="${FAIL2BAN_IGNOREIP:-}"
+    nodeVersion="${NODE_VERSION:-24}"
 
     # Export variables for use in other scripts
     export ubuntuVersion phpVersion requiresPhpPpa typo3Version typo3MajorVersion typo3CliName
@@ -119,6 +123,7 @@ loadConfig() {
     export enableBasicAuth basicAuthUser basicAuthPassword
     export databaseUser databasePassword databaseName databaseHost encryptionKey redisPassword
     export typo3LoginPathDE typo3LoginPathEN fail2banIgnoreIp
+    export nodeVersion
 
     # Also export path to php.ini for PHP configuration
     export pathToPhpIni="/etc/php/${phpVersion}/fpm/php.ini"
