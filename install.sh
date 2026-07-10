@@ -218,5 +218,17 @@ else
   echo "INFO Dry-run preview:               bin/harden-ssh.sh --dry-run"
 fi
 
+# Optional: dedicated deploy user instead of direct www-data SSH access
+echo ""
+echo "Optional: create a dedicated deploy user (own SSH login, sudo -u www-data)"
+echo "and disable the direct www-data SSH login afterwards."
+read -rp "Set up a deploy user now? [y/N] " deploy_response
+if [[ "${deploy_response}" =~ ^([yY])$ ]]; then
+  bash "${SCRIPT_DIR}/bin/setup-deploy-user.sh"
+else
+  echo "INFO Skipped. Run manually anytime: bin/setup-deploy-user.sh"
+  echo "INFO Dry-run preview:               bin/setup-deploy-user.sh --dry-run"
+fi
+
 # Show all remaining TODOs at the very end — after tuning and SSH hardening
 printNextSteps
