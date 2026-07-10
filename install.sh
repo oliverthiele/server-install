@@ -118,6 +118,7 @@ if ! isStepComplete "system_hardening"; then
   increaseLimits
   optimizeKernel
   hardenSSH
+  configureUnattendedUpgrades
   markStepComplete "system_hardening"
 fi
 
