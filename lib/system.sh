@@ -49,7 +49,7 @@ installSoftware() {
   echo "INFO Install System (nginx, php ${phpVersion}, MySQL, Redis, ...)"
 
   if [[ "${requiresPhpPpa}" == 'true' ]]; then
-    addPhpRepo
+    addPhpRepo "${phpVersion}"
   fi
 
   # Install AVIF shared library before php-gd so GD AVIF support is available at runtime.
