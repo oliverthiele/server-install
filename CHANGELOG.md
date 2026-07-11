@@ -46,6 +46,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   matched nothing — all four custom jails (`nginx-sqli-lfi`, `nginx-4xx`, `nginx-login-ratelimit`,
   `typo3-fe-login`) were ineffective. Pattern changed to `\[[^\]]*\]`; `_testFail2banFilters()` now runs
   a positive-control test with synthetic attack lines so a non-matching filter is reported during install
+- `nginx-4xx` filter banned legitimate users: 401 responses (normal BasicAuth handshake — every request
+  without credentials gets a 401 first) and TYPO3 backend 403s (an open backend tab with an expired
+  session keeps polling via ajax) counted towards the ban limit. 401 is now excluded alongside 400/404,
+  and `/typo3` requests are excluded via `ignoreregex`
 
 ---
 

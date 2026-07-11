@@ -128,14 +128,23 @@ failregex = (?i)^<HOST> \S+ \S+ \[[^\]]*\] "(?:GET|POST|HEAD) [^"]*(union[\+%%20
 ignoreregex =
 EOF
 
-  # Repeated 4xx errors — excludes 400 (bad request) and 404 (not found) to reduce noise
+  # Repeated 4xx errors — excludes 400/401/404 and TYPO3 backend paths (see below)
   cat > /etc/fail2ban/filter.d/nginx-4xx.conf <<'EOF'
 [Definition]
-# Detect repeated 4xx responses, excluding 400 and 404 which are too noisy.
-# Catches scanners, credential stuffers, and probing tools.
-failregex = ^<HOST> \S+ \S+ \[[^\]]*\] "[^"]+" (?:40[1-35-9]|4[1-9]\d) \d+
+# Detect repeated 4xx responses. Catches scanners and probing tools.
+# Excluded status codes:
+#   400/404 — far too noisy (broken clients, dead links)
+#   401     — the normal BasicAuth handshake: every request without credentials
+#             gets a 401 first, so one page load with parallel asset requests
+#             produces a burst of them. BasicAuth brute force is covered by the
+#             nginx-http-auth jail (error.log) instead.
+failregex = ^<HOST> \S+ \S+ \[[^\]]*\] "[^"]+" (?:40[2-35-9]|4[1-9]\d) \d+
 
-ignoreregex =
+# TYPO3 backend requests are never counted: an open backend tab with an expired
+# session keeps polling via ajax and produces repeated 403s — banning the editor
+# working in /typo3 is worse than missing a scanner hit on it (login brute force
+# is handled by TYPO3's own lockout and optionally backend-ip-restriction.nginx).
+ignoreregex = ^\S+ \S+ \S+ \[[^\]]*\] "[A-Z]+ /typo3
 EOF
 
   # 429 Too Many Requests — triggered by nginx rate limiting (limit_req_status 429)
