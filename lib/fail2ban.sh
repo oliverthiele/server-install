@@ -128,17 +128,20 @@ failregex = (?i)^<HOST> \S+ \S+ \[[^\]]*\] "(?:GET|POST|HEAD) [^"]*(union[\+%%20
 ignoreregex =
 EOF
 
-  # Repeated 4xx errors — excludes 400/401/404 and TYPO3 backend paths (see below)
+  # Repeated denied requests — jail name "nginx-4xx" kept for compatibility,
+  # but only explicit signal codes are counted (allowlist, not blocklist)
   cat > /etc/fail2ban/filter.d/nginx-4xx.conf <<'EOF'
 [Definition]
-# Detect repeated 4xx responses. Catches scanners and probing tools.
-# Excluded status codes:
-#   400/404 — far too noisy (broken clients, dead links)
-#   401     — the normal BasicAuth handshake: every request without credentials
-#             gets a 401 first, so one page load with parallel asset requests
-#             produces a burst of them. BasicAuth brute force is covered by the
-#             nginx-http-auth jail (error.log) instead.
-failregex = ^<HOST> \S+ \S+ \[[^\]]*\] "[^"]+" (?:40[2-35-9]|4[1-9]\d) \d+
+# Detect repeated denied requests. Counts ONLY:
+#   403 — access denied (nginx deny rules, protected files)
+#   429 — rate limit exceeded
+# All other 4xx codes are deliberately NOT counted — they are real-world noise
+# from legitimate clients: 400/404 (broken clients, dead links), 401 (normal
+# BasicAuth handshake — every request without credentials gets a 401 first),
+# 405 (CORS preflight OPTIONS hits the method filter), 444 (already blocked by
+# the nginx URI/bot filters — their false positives must not escalate into
+# bans), 499 (client closed the connection).
+failregex = ^<HOST> \S+ \S+ \[[^\]]*\] "[^"]+" (?:403|429) \d+
 
 # TYPO3 backend requests are never counted: an open backend tab with an expired
 # session keeps polling via ajax and produces repeated 403s — banning the editor
