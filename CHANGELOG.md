@@ -71,6 +71,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   matched before the WebP location in `typo3.nginx` (regex locations match in include order), so
   pre-generated `.webp` files were never served. WebP handling moved into the image location of
   `caching.nginx`; the dead location was removed
+- State config mangled passwords containing `$` on resume: `saveConfig()` wrote values in double
+  quotes, and `loadConfig()` re-reads the file via `source` — shell expansion turned a generated
+  password like `…S*$kt` into `…S*`, so every consumer after a resume used a wrong value (observed:
+  regenerated `.htpasswd` no longer matched the documented BasicAuth password). All values are now
+  serialized shell-quoted via `printf %q`
 
 ---
 

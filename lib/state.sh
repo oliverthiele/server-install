@@ -15,58 +15,68 @@ initState() {
   fi
 }
 
+# Write one KEY=value line with shell quoting (printf %q).
+# The config file is re-read via source in loadConfig() — without quoting,
+# a generated password containing $ (e.g. "...S*$kt") would be mangled by
+# variable expansion and every consumer after a resume would use a wrong value.
+_configLine() {
+  printf '%s=%q\n' "$1" "$2"
+}
+
 # Save configuration for resume capability
 saveConfig() {
-  cat > "${CONFIG_FILE}" <<EOL
-# TYPO3 Installation Configuration
-# This file allows resuming installation after interruption
-
-# System
-UBUNTU_VERSION="${ubuntuVersion}"
-PHP_VERSION="${phpVersion}"
-REQUIRES_PHP_PPA="${requiresPhpPpa}"
-
-# TYPO3
-TYPO3_VERSION="${typo3Version}"
-TYPO3_MAJOR_VERSION="${typo3MajorVersion}"
-TYPO3_CLI_NAME="${typo3CliName}"
-
-# Paths
-WWW_ROOT="${wwwRoot}"
-COMPOSER_DIRECTORY="${composerDirectory}"
-TYPO3_PUBLIC_DIRECTORY="${typo3PublicDirectory}"
-PATH_SETTINGS="${pathSettings}"
-PATH_ADDITIONAL_SETTINGS="${pathAdditionalSettings}"
-
-# Domain & Email
-SERVER_DOMAIN="${serverDomain}"
-ADMIN_EMAIL="${adminEmail}"
-ADMIN_REAL_NAME="${adminRealName:-}"
-BOT_FILTER_MODE="${botFilterMode}"
-ENABLE_BASIC_AUTH="${enableBasicAuth:-false}"
-BASIC_AUTH_USER="${basicAuthUser:-}"
-BASIC_AUTH_PASSWORD="${basicAuthPassword:-}"
-
-# System Password
-SYSTEM_PASS="${systemPass}"
-
-# Database (if already created)
-DATABASE_USER="${databaseUser:-}"
-DATABASE_PASSWORD="${databasePassword:-}"
-DATABASE_NAME="${databaseName:-}"
-DATABASE_HOST="${databaseHost:-localhost}"
-ENCRYPTION_KEY="${encryptionKey:-}"
-REDIS_PASS="${redisPassword:-}"
-
-# fail2ban / rate limiting
-HAS_FRONTEND_LOGIN="${hasFrontendLogin:-true}"
-TYPO3_LOGIN_PATH_DE="${typo3LoginPathDE:-}"
-TYPO3_LOGIN_PATH_EN="${typo3LoginPathEN:-}"
-FAIL2BAN_IGNOREIP="${fail2banIgnoreIp:-}"
-
-# Node.js (frontend builds via nvm)
-NODE_VERSION="${nodeVersion:-24}"
-EOL
+  {
+    echo "# TYPO3 Installation Configuration"
+    echo "# This file allows resuming installation after interruption."
+    echo "# Values are shell-quoted (printf %q) so special characters in"
+    echo "# generated passwords (\$, *, !) survive re-sourcing in loadConfig()."
+    echo ""
+    echo "# System"
+    _configLine UBUNTU_VERSION            "${ubuntuVersion}"
+    _configLine PHP_VERSION               "${phpVersion}"
+    _configLine REQUIRES_PHP_PPA          "${requiresPhpPpa}"
+    echo ""
+    echo "# TYPO3"
+    _configLine TYPO3_VERSION             "${typo3Version}"
+    _configLine TYPO3_MAJOR_VERSION       "${typo3MajorVersion}"
+    _configLine TYPO3_CLI_NAME            "${typo3CliName}"
+    echo ""
+    echo "# Paths"
+    _configLine WWW_ROOT                  "${wwwRoot}"
+    _configLine COMPOSER_DIRECTORY        "${composerDirectory}"
+    _configLine TYPO3_PUBLIC_DIRECTORY    "${typo3PublicDirectory}"
+    _configLine PATH_SETTINGS             "${pathSettings}"
+    _configLine PATH_ADDITIONAL_SETTINGS  "${pathAdditionalSettings}"
+    echo ""
+    echo "# Domain & Email"
+    _configLine SERVER_DOMAIN             "${serverDomain}"
+    _configLine ADMIN_EMAIL               "${adminEmail}"
+    _configLine ADMIN_REAL_NAME           "${adminRealName:-}"
+    _configLine BOT_FILTER_MODE           "${botFilterMode}"
+    _configLine ENABLE_BASIC_AUTH         "${enableBasicAuth:-false}"
+    _configLine BASIC_AUTH_USER           "${basicAuthUser:-}"
+    _configLine BASIC_AUTH_PASSWORD       "${basicAuthPassword:-}"
+    echo ""
+    echo "# System Password"
+    _configLine SYSTEM_PASS               "${systemPass}"
+    echo ""
+    echo "# Database (if already created)"
+    _configLine DATABASE_USER             "${databaseUser:-}"
+    _configLine DATABASE_PASSWORD         "${databasePassword:-}"
+    _configLine DATABASE_NAME             "${databaseName:-}"
+    _configLine DATABASE_HOST             "${databaseHost:-localhost}"
+    _configLine ENCRYPTION_KEY            "${encryptionKey:-}"
+    _configLine REDIS_PASS                "${redisPassword:-}"
+    echo ""
+    echo "# fail2ban / rate limiting"
+    _configLine HAS_FRONTEND_LOGIN        "${hasFrontendLogin:-true}"
+    _configLine TYPO3_LOGIN_PATH_DE       "${typo3LoginPathDE:-}"
+    _configLine TYPO3_LOGIN_PATH_EN       "${typo3LoginPathEN:-}"
+    _configLine FAIL2BAN_IGNOREIP         "${fail2banIgnoreIp:-}"
+    echo ""
+    echo "# Node.js (frontend builds via nvm)"
+    _configLine NODE_VERSION              "${nodeVersion:-24}"
+  } > "${CONFIG_FILE}"
   chmod 600 "${CONFIG_FILE}"
 }
 
