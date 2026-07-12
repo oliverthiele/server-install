@@ -12,6 +12,9 @@ bin/
   setup-deploy-user.sh # Opt-in deploy user: own SSH login, sudo -u www-data, disable www-data login
   backup-database.sh   # Local DB dumps (operator-error safety net): excludes log/cache/session data,
                        # disk space check, retention, --install-cron for /etc/cron.d/typo3-db-backup
+  check-image-processing.sh # Health check: GFX processor installed? WebP conversion works?
+                       # 0-byte .webp leftovers? Run after site migrations (migrated settings.php
+                       # may reference a processor that is not installed on this server)
   migrate-php-repo.sh  # Switches an existing server from ppa:ondrej/php to packages.sury.org
 lib/
   config.sh         # setVariables() – interactive prompts for TYPO3 version, domain, email

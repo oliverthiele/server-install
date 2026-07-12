@@ -120,6 +120,7 @@ server-install/
 │   ├── harden-ssh.sh                      # Interactive SSH hardening (port change, key-only auth)
 │   ├── setup-deploy-user.sh               # Dedicated deploy user instead of direct www-data SSH login
 │   ├── backup-database.sh                 # Local DB dumps: excludes, space check, retention, cron
+│   ├── check-image-processing.sh          # GFX processor + WebP conversion health (run after migrations)
 │   ├── add-php-version.sh                 # Install an additional PHP version side by side
 │   ├── apply-php-settings.sh              # Re-apply optimized PHP settings after updates
 │   ├── migrate-php-repo.sh                # Switch existing servers from ppa:ondrej/php to packages.sury.org
@@ -684,7 +685,20 @@ redis-cli ping                    # Expected: PONG (requires -a <password> after
 php -m | grep redis               # PHP Redis extension loaded?
 bin/tune-server.sh --dry-run      # Review current tuning recommendations
 bin/toggle-php-slowlog.sh status  # Check slow log state
+bin/check-image-processing.sh     # GFX processor + WebP conversion health
 ```
+
+### Image Processing / Broken WebP Images
+
+A `settings.php` brought along by a site migration can reference a graphics processor (e.g. GraphicsMagick)
+that is not installed on this server. TYPO3 then silently fails every **new** image processing — existing
+`_processed_` files keep working, so the breakage stays invisible until an editor uploads a new image.
+plan2net/webp additionally leaves 0-byte `.webp` files behind, which nginx serves as broken images to
+WebP-capable browsers.
+
+`bin/check-image-processing.sh` detects this: it verifies the configured processor binary exists, runs a
+real JPEG→WebP test conversion, checks PHP GD WebP support, and counts 0-byte `.webp` leftovers under
+`fileadmin` (exit code 1 if anything fails — suitable for monitoring). **Run it after every site migration.**
 
 **`ondrej/php` PPA: "Repository ... changed its 'Label' value ... Use https://packages.sury.org/php/ instead"**
 

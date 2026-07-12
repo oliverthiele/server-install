@@ -26,6 +26,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Frontend login question in the installer: login rate limiting and the `typo3-fe-login` jail are only
   configured when the site has a frontend login; otherwise a placeholder snippet documents how to
   enable both later (nginx snippet + fail2ban jail)
+- `bin/check-image-processing.sh` — health check for TYPO3 image processing: verifies the GFX
+  processor from `settings.php` is actually installed, runs a real JPEG→WebP test conversion, checks
+  PHP GD WebP support, and counts 0-byte `.webp` leftovers under fileadmin. Motivated by a live
+  incident where a migrated `settings.php` referenced GraphicsMagick on a server that only has
+  ImageMagick — every new image processing failed silently and plan2net/webp left empty `.webp`
+  files that nginx served as broken images
 
 ### Changed
 
