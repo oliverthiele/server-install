@@ -106,8 +106,8 @@ sudo ./install.sh
 ```
 
 The installer runs interactively and asks for: TYPO3 version, PHP version, domain, admin email, bot filter mode,
-BasicAuth, TYPO3 login paths (rate limiting + fail2ban), fail2ban IP allowlist, and Node.js version (24 or 22).
-At the end it optionally runs
+BasicAuth, frontend login (paths for rate limiting + fail2ban, skippable), static fail2ban IP allowlist, and
+Node.js version (24 or 22). At the end it optionally runs
 `bin/tune-server.sh`, `bin/harden-ssh.sh`, `bin/setup-deploy-user.sh`, and `bin/backup-database.sh --install-cron`.
 
 ## Project Structure
@@ -404,8 +404,15 @@ Pre-compressed formats (WOFF2, AVIF, WebP, JPEG, PNG) are excluded from compress
 
 - **Versioned assets** (CSS/JS with timestamp): `max-age=31536000, immutable`
 - **`_assets/`** (extension assets): 1 year
-- **Images**: 30 days
+- **Images**: 30 days (with WebP variant delivery — pre-generated `.webp` files from plan2net/webp are
+  served automatically when the browser accepts them)
 - **Fonts**: 1 year
+- **Media / PDF**: 7 days
+
+The `^~ /fileadmin/` security location stops nginx regex matching, so the general caching rules do not
+apply there — the fileadmin block therefore contains its own nested cache locations (images 30 days,
+fonts 1 year, media/PDF 7 days, SVG with CSP + 30 days). Security rules (recycler, executable files,
+CSP) always take precedence over caching.
 
 ## Security Hardening
 
@@ -452,8 +459,13 @@ The sudo rule is written to `/etc/sudoers.d/deploy` and validated with `visudo -
 ### fail2ban
 
 Installed and enabled during installation. All nginx jails ban on ports `http,https` only — a web attack never
-locks an IP out of SSH. Additional IPs for the global `ignoreip` allowlist (VPN, office) are prompted during
-installation.
+locks an IP out of SSH. The installer asks for **static** `ignoreip` entries (company office with fixed IP, or a
+VPN server admins connect through) — never add dynamic home/mobile IPs, as stale entries whitelist strangers once
+the provider reassigns them. Entries can be added later in `/etc/fail2ban/jail.local` + `systemctl reload fail2ban`.
+
+The `typo3-fe-login` jail and the login rate limiting are only configured when the installer question "Will this
+site have a frontend login?" is answered with yes; otherwise a placeholder snippet documents how to enable both
+later.
 
 | Jail                    | Watches                                        | maxretry | bantime |
 |-------------------------|------------------------------------------------|----------|---------|
@@ -464,7 +476,9 @@ installation.
 | `nginx-sqli-lfi`        | SQL injection, LFI, XSS, recon probes          | 1        | 24 h    |
 | `nginx-4xx`             | Repeated 4xx responses (400/404 excluded)      | 20       | 1 h     |
 | `nginx-login-ratelimit` | 429 responses from login rate limiting         | 3        | 6 h     |
-| `typo3-fe-login`        | Failed TYPO3 frontend logins (status 200/403)  | 5        | 6 h     |
+| `typo3-fe-login`        | Failed TYPO3 frontend logins (status 200/403)¹ | 5        | 6 h     |
+
+¹ Only when a frontend login was configured during installation.
 
 The `typo3-fe-login` filter only counts POST requests answered with status 200 or 403 — successful logins redirect
 with 302/303 and are never counted, so users who log in several times in a row are not banned. The SQLi/LFI filter

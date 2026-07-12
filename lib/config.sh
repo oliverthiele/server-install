@@ -198,9 +198,13 @@ setVariables() {
 
   # fail2ban: additional IP addresses / ranges to whitelist
   echo "---------------------------------------"
-  echo "Additional fail2ban ignoreip — IPs or CIDR ranges that are never banned."
-  echo "127.0.0.1/8 and ::1 are always included. Add your VPN or office IP here."
-  read -rp "Additional ignoreip (space-separated, Enter to skip): " input
+  echo "fail2ban ignoreip — addresses that are NEVER banned (lockout protection)."
+  echo "Only add STATIC addresses: a company office with a fixed IP, or a VPN"
+  echo "server (e.g. WireGuard) that admins connect through."
+  echo "Do NOT add dynamic home/mobile IPs — once the provider reassigns them,"
+  echo "a stale entry whitelists a stranger. If you have neither, leave empty;"
+  echo "add later in /etc/fail2ban/jail.local (ignoreip) + 'systemctl reload fail2ban'."
+  read -rp "Static ignoreip entries (space-separated, Enter to skip): " input
   fail2banIgnoreIp=${input:-}
   if [[ -n "${fail2banIgnoreIp}" ]]; then
     echo "fail2ban ignoreip: 127.0.0.1/8 ::1 ${fail2banIgnoreIp}"

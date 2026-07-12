@@ -23,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   dump, 7-day retention, `--install-cron` for a 6-hour schedule; offered at the end of `install.sh`.
   Documentation makes the scope explicit: local dumps do not replace off-site backups
 - `bin/migrate-php-repo.sh` — switch existing servers from `ppa:ondrej/php` to packages.sury.org
+- Frontend login question in the installer: login rate limiting and the `typo3-fe-login` jail are only
+  configured when the site has a frontend login; otherwise a placeholder snippet documents how to
+  enable both later (nginx snippet + fail2ban jail)
 
 ### Changed
 
@@ -38,6 +41,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   modes, what is never blocked, and that the two modes only differ in AI crawler handling
 - Node.js default raised from 22 to 24 (Active LTS; Node 22 enters maintenance mode in October 2026);
   the version is now selectable during installation and persisted as `NODE_VERSION` in the state config
+- fail2ban `ignoreip` prompt now asks explicitly for static addresses only (company office with fixed
+  IP, VPN server) and warns against dynamic home/mobile IPs — stale entries would whitelist strangers
+  once the provider reassigns them
 
 ### Fixed
 
@@ -56,6 +62,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   in the URI and blocked legitimate uploads whose filename contains a source URL (e.g.
   `fileadmin/_processed_/…httpwww.example.comwp-contentuploads….jpg`). Patterns are now anchored to
   path-segment boundaries (`/wp-content/…`, `/wp-login.php`)
+- fileadmin responses were served without any cache headers (Lighthouse: "Use efficient cache
+  lifetimes", Cache TTL "None"): the `^~ /fileadmin/` security location stops regex matching, so the
+  caching rules from `caching.nginx` never applied there. The fileadmin block now contains nested
+  cache locations (images 30 d with WebP delivery, fonts 1 y, media/PDF 7 d, SVG with CSP + 30 d);
+  security rules keep precedence
+- WebP variant delivery was dead configuration site-wide: the image location in `caching.nginx`
+  matched before the WebP location in `typo3.nginx` (regex locations match in include order), so
+  pre-generated `.webp` files were never served. WebP handling moved into the image location of
+  `caching.nginx`; the dead location was removed
 
 ---
 
