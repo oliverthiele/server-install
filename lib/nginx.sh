@@ -527,15 +527,15 @@ ${catchAllConfig}server {
         try_files \$uri \$uri/ /index.php?\$args;
     }
 
-    # WebP Extension support
-    location ~* ^.+\.(png|gif|jpe?g)$ {
-        add_header Vary "Accept";
-        add_header Cache-Control "public, no-transform";
-        try_files \$uri\$webp_suffix \$uri =404;
-    }
+    # NOTE: WebP variant delivery (\$webp_suffix) is handled inside caching.nginx —
+    # regex locations are matched in include order, so it must live in the same
+    # location that sets the image cache headers.
 
     # Fileadmin: uploaded files are served statically, never executed as PHP.
     # ^~ stops regex matching, so the PHP-FPM location does not apply here.
+    # This also stops the caching.nginx regex locations — cache headers must
+    # therefore be set in nested locations below (order matters: the security
+    # blocks come first so deny rules and CSP always win over caching).
     # CSP is only added for file types that can execute active content in the browser.
     # Binary media files (mp4, mp3, pdf, images, etc.) are served without CSP headers
     # to avoid browser compatibility issues (e.g. video playback failing silently).
@@ -554,10 +554,43 @@ ${catchAllConfig}server {
             deny all;
         }
 
-        # Strict CSP only for file types that can run active content in the browser
+        # Strict CSP only for file types that can run active content in the browser.
+        # Cached 30 days like other static assets (SVG logos/icons live here).
         location ~* \.(html?|xhtml|xml|svg|svgz|js|mjs)\$ {
             add_header Content-Security-Policy "default-src 'none'; base-uri 'none'; form-action 'none'; sandbox" always;
             add_header X-Content-Type-Options "nosniff" always;
+            expires 30d;
+            add_header Cache-Control "public";
+            try_files \$uri =404;
+        }
+
+        # Bitmap images: cache headers + WebP variant delivery
+        # (plan2net/webp writes .webp files next to originals in _processed_)
+        location ~* \.(png|gif|jpe?g)\$ {
+            expires 30d;
+            add_header Cache-Control "public, no-transform";
+            add_header Vary "Accept, Accept-Encoding";
+            try_files \$uri\$webp_suffix \$uri =404;
+        }
+
+        # Other image formats
+        location ~* \.(webp|avif|ico)\$ {
+            expires 30d;
+            add_header Cache-Control "public, no-transform";
+            try_files \$uri =404;
+        }
+
+        # Fonts
+        location ~* \.(woff2?|ttf|otf|eot)\$ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+            try_files \$uri =404;
+        }
+
+        # Media files and documents
+        location ~* \.(mp4|webm|ogg|ogv|mov|mp3|pdf)\$ {
+            expires 7d;
+            add_header Cache-Control "public";
             try_files \$uri =404;
         }
     }
