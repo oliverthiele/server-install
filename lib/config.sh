@@ -153,17 +153,30 @@ setVariables() {
   fi
   echo ""
 
-  # TYPO3 login paths for nginx rate limiting and fail2ban
+  # TYPO3 frontend login paths for nginx rate limiting and fail2ban
   echo "---------------------------------------"
-  echo "TYPO3 frontend login paths (used for nginx rate limiting and fail2ban)."
-  echo "Enter the URL paths for the login pages of your TYPO3 site."
-  read -rp "Login path DE [/anmeldung/]: " input
-  typo3LoginPathDE=${input:-/anmeldung/}
+  echo "TYPO3 frontend login protection (nginx rate limiting + fail2ban)."
+  echo "Only relevant if the site will have a frontend login (member area,"
+  echo "customer portal). Both protections can be added later at any time:"
+  echo "  nginx:    /etc/nginx/snippets/rate-limiting-login.nginx  (+ nginx reload)"
+  echo "  fail2ban: /etc/fail2ban/jail.local [typo3-fe-login]      (+ fail2ban reload)"
+  read -rp "Will this site have a frontend login? [y/N]: " loginOption
+  if [[ "${loginOption}" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+    hasFrontendLogin='true'
+    echo "Enter the URL paths for the login pages of your TYPO3 site."
+    read -rp "Login path DE [/anmeldung/]: " input
+    typo3LoginPathDE=${input:-/anmeldung/}
 
-  read -rp "Login path EN [/en/login/]: " input
-  typo3LoginPathEN=${input:-/en/login/}
+    read -rp "Login path EN [/en/login/]: " input
+    typo3LoginPathEN=${input:-/en/login/}
 
-  echo "Login paths: ${typo3LoginPathDE} (DE), ${typo3LoginPathEN} (EN)"
+    echo "Login paths: ${typo3LoginPathDE} (DE), ${typo3LoginPathEN} (EN)"
+  else
+    hasFrontendLogin='false'
+    typo3LoginPathDE=''
+    typo3LoginPathEN=''
+    echo "No frontend login — login rate limiting and typo3-fe-login jail are skipped."
+  fi
   echo ""
 
   # Node.js version for frontend builds (installed via nvm for www-data)
@@ -199,6 +212,6 @@ setVariables() {
   export typo3CliName pathSettings pathAdditionalSettings systemPass
   export serverDomain adminEmail adminRealName botFilterMode
   export enableBasicAuth basicAuthUser basicAuthPassword
-  export typo3LoginPathDE typo3LoginPathEN fail2banIgnoreIp
+  export hasFrontendLogin typo3LoginPathDE typo3LoginPathEN fail2banIgnoreIp
   export nodeVersion
 }

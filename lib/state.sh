@@ -59,8 +59,9 @@ ENCRYPTION_KEY="${encryptionKey:-}"
 REDIS_PASS="${redisPassword:-}"
 
 # fail2ban / rate limiting
-TYPO3_LOGIN_PATH_DE="${typo3LoginPathDE:-/anmeldung/}"
-TYPO3_LOGIN_PATH_EN="${typo3LoginPathEN:-/en/login/}"
+HAS_FRONTEND_LOGIN="${hasFrontendLogin:-true}"
+TYPO3_LOGIN_PATH_DE="${typo3LoginPathDE:-}"
+TYPO3_LOGIN_PATH_EN="${typo3LoginPathEN:-}"
 FAIL2BAN_IGNOREIP="${fail2banIgnoreIp:-}"
 
 # Node.js (frontend builds via nvm)
@@ -110,8 +111,16 @@ loadConfig() {
     databaseHost="${DATABASE_HOST}"
     encryptionKey="${ENCRYPTION_KEY}"
     redisPassword="${REDIS_PASS}"
-    typo3LoginPathDE="${TYPO3_LOGIN_PATH_DE:-/anmeldung/}"
-    typo3LoginPathEN="${TYPO3_LOGIN_PATH_EN:-/en/login/}"
+    # Older config files predate HAS_FRONTEND_LOGIN and always had login paths —
+    # default to true with the old path defaults so a resume behaves as before.
+    hasFrontendLogin="${HAS_FRONTEND_LOGIN:-true}"
+    if [[ "${hasFrontendLogin}" == 'true' ]]; then
+      typo3LoginPathDE="${TYPO3_LOGIN_PATH_DE:-/anmeldung/}"
+      typo3LoginPathEN="${TYPO3_LOGIN_PATH_EN:-/en/login/}"
+    else
+      typo3LoginPathDE=''
+      typo3LoginPathEN=''
+    fi
     fail2banIgnoreIp="${FAIL2BAN_IGNOREIP:-}"
     nodeVersion="${NODE_VERSION:-24}"
 
@@ -122,7 +131,7 @@ loadConfig() {
     export serverDomain adminEmail adminRealName botFilterMode systemPass
     export enableBasicAuth basicAuthUser basicAuthPassword
     export databaseUser databasePassword databaseName databaseHost encryptionKey redisPassword
-    export typo3LoginPathDE typo3LoginPathEN fail2banIgnoreIp
+    export hasFrontendLogin typo3LoginPathDE typo3LoginPathEN fail2banIgnoreIp
     export nodeVersion
 
     # Also export path to php.ini for PHP configuration

@@ -191,6 +191,27 @@ EOF
 writeRateLimitingLoginSnippet() {
   local targetFile="/etc/nginx/snippets/rate-limiting-login.nginx"
 
+  # No frontend login configured: write a placeholder so the include in
+  # typo3.nginx stays valid and the file documents how to enable it later.
+  if [[ "${hasFrontendLogin:-true}" != 'true' ]]; then
+    echo "INFO No frontend login — writing rate-limiting placeholder snippet"
+    cat > "${targetFile}" <<'EOF'
+# TYPO3 login rate limiting — NOT ACTIVE
+# No frontend login was configured during installation.
+#
+# To enable later, add a location for your login page(s) and reload nginx:
+#
+# location ~ ^(/anmeldung/|/en/login/) {
+#     limit_req zone=typo3_login burst=2 nodelay;
+#     try_files $uri $uri/ /index.php$is_args$args;
+# }
+#
+# Also enable the matching fail2ban jail — see [typo3-fe-login] in
+# /etc/fail2ban/jail.local and /etc/fail2ban/filter.d/typo3-fe-login.conf.
+EOF
+    return 0
+  fi
+
   echo "INFO Writing rate-limiting login snippet"
 
   [ -z "${typo3LoginPathDE}" ] && die "typo3LoginPathDE is not set — cannot write rate-limiting-login.nginx"

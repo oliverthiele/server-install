@@ -86,6 +86,12 @@ maxretry = 3
 findtime = 5m
 bantime  = 6h
 logpath  = /var/log/nginx/access.log
+EOF
+
+  # typo3-fe-login jail only when a frontend login was configured —
+  # without login paths the filter would have an empty failregex.
+  if [[ "${hasFrontendLogin:-true}" == 'true' && -n "${typo3LoginPathDE:-}" ]]; then
+    cat >> /etc/fail2ban/jail.local <<EOF
 
 [typo3-fe-login]
 enabled  = true
@@ -96,6 +102,11 @@ findtime = 10m
 bantime  = 6h
 logpath  = /var/log/nginx/access.log
 EOF
+  else
+    echo "INFO No frontend login — typo3-fe-login jail skipped"
+    echo "INFO To add later: [typo3-fe-login] section in /etc/fail2ban/jail.local"
+    echo "INFO plus /etc/fail2ban/filter.d/typo3-fe-login.conf, then reload fail2ban"
+  fi
 
   _writeFail2banFilters
 
@@ -164,6 +175,10 @@ EOF
   # Only status 200 (login form shown again) and 403 count as failures.
   # A successful TYPO3 login redirects with 302/303, so users who log in
   # several times in quick succession are never counted towards a ban.
+  if [[ "${hasFrontendLogin:-true}" != 'true' || -z "${typo3LoginPathDE:-}" ]]; then
+    return 0
+  fi
+
   cat > /etc/fail2ban/filter.d/typo3-fe-login.conf <<EOF
 [Definition]
 # Detect repeated POST requests to TYPO3 frontend login paths.
@@ -192,8 +207,13 @@ _testFail2banFilters() {
 203.0.113.5 - - [10/Jul/2026:14:00:04 +0000] "POST ${typo3LoginPathDE} HTTP/1.1" 200 5000
 EOF
 
+  local filterNames=(nginx-sqli-lfi nginx-4xx nginx-login-ratelimit)
+  if [[ "${hasFrontendLogin:-true}" == 'true' && -n "${typo3LoginPathDE:-}" ]]; then
+    filterNames+=(typo3-fe-login)
+  fi
+
   local filterName
-  for filterName in nginx-sqli-lfi nginx-4xx nginx-login-ratelimit typo3-fe-login; do
+  for filterName in "${filterNames[@]}"; do
     if fail2ban-regex "${sampleLog}" "/etc/fail2ban/filter.d/${filterName}.conf" 2>/dev/null \
         | grep -qE "^Lines: [0-9]+ lines, [0-9]+ ignored, [1-9][0-9]* matched"; then
       echo "INFO fail2ban filter OK: ${filterName}"
