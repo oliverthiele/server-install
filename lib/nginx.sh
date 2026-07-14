@@ -2,98 +2,19 @@
 
 # Nginx installation and configuration with Brotli
 
+# Bot/crawler policy is managed by bin/bot-policy (per-bot rules stored as JSON
+# under /etc/bot-policy/, see bin/bot-policy/lib/storage.sh). This function only
+# seeds the catalog on first install — mode selects the initial rule for AI
+# crawlers ("production" leaves them unrestricted, "staging" blocks them too,
+# same behavior as the old hardcoded modes). Re-running is a no-op once the
+# catalog exists, so later manual edits via bin/bot-policy survive re-installs.
 writeBotFilterSnippet() {
   local mode="${1}"
-  local targetFile="/etc/nginx/snippets/bot-filter.nginx"
+  local scriptDirectoryNginx
+  scriptDirectoryNginx="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-  echo "INFO Writing bot-filter snippet (mode: ${mode})"
-
-  if [[ "${mode}" == "staging" ]]; then
-    cat > "${targetFile}" <<'EOL'
-# Bot and AI Crawler Filter – STAGING mode
-# All AI crawlers and SEO scrapers are blocked.
-# This system is not intended to be indexed.
-
-set $block_bot 0;
-
-# Block SEO scrapers and aggressive crawlers (not search engines, purely commercial data harvesting)
-if ($http_user_agent ~* (AhrefsBot|SemrushBot|DotBot|MJ12bot|BLEXBot|DataForSeoBot|SeznamBot|MegaIndex|serpstatbot|SeekportBot|SEOkicks|SleepBot|Exabot|MauiBot|crawler4j|TurnitinBot|libwww-perl|Python-urllib|GrabNet|GetRight|Go!Zilla|SERanking|Indy\.Library|Omgilibot)) {
-    set $block_bot 1;
-}
-
-# Block search engine crawlers without relevant traffic for most DE/EU sites
-if ($http_user_agent ~* (Baiduspider|Baidu|Sogou|360Spider|YisouSpider|Yisou|YoudaoBot|Youdao|Sosospider|HaoSouSpider|PetalBot|Yandex|Amazonbot|AmazonProductDiscovery|Bytespider|ByteDance|TikTokSpider)) {
-    set $block_bot 1;
-}
-
-# Block all AI crawlers
-if ($http_user_agent ~* (GPTBot|ChatGPT-User|OAI-SearchBot|CCBot|anthropic-ai|ClaudeBot|Claude-Web|cohere-ai|PerplexityBot|Perplexity-User|FacebookBot|meta-externalagent|Applebot-Extended|Google-Extended|GoogleOther|YouBot|ImagesiftBot)) {
-    set $block_bot 1;
-}
-
-# Block empty User-Agent (common for scrapers)
-if ($http_user_agent = "") {
-    set $block_bot 1;
-}
-
-# Allowed tools: never block, even if matched above
-# (uptime monitoring and E2E test runners must reach the site)
-if ($http_user_agent ~* (HetrixTools|Playwright)) {
-    set $block_bot 0;
-}
-
-if ($block_bot = 1) {
-    return 444;
-}
-EOL
-
-  else
-    cat > "${targetFile}" <<'EOL'
-# Bot and AI Crawler Filter – PRODUCTION mode
-# Abusive scrapers and Bytedance are blocked.
-# Major AI assistants (ChatGPT, Claude, Perplexity, Gemini) are allowed
-# so the site remains discoverable via AI search tools.
-
-set $block_bot 0;
-
-# Always block: Bytedance/TikTok (history of abusive crawling causing server load)
-if ($http_user_agent ~* (Bytespider|ByteDance|TikTokSpider)) {
-    set $block_bot 1;
-}
-
-# Block SEO scrapers and aggressive crawlers (not search engines, purely commercial data harvesting)
-if ($http_user_agent ~* (AhrefsBot|SemrushBot|DotBot|MJ12bot|BLEXBot|DataForSeoBot|SeznamBot|MegaIndex|serpstatbot|SeekportBot|SEOkicks|SleepBot|Exabot|MauiBot|crawler4j|TurnitinBot|libwww-perl|Python-urllib|GrabNet|GetRight|Go!Zilla|SERanking|Indy\.Library|Omgilibot)) {
-    set $block_bot 1;
-}
-
-# Block search engine crawlers without relevant traffic for most DE/EU sites
-if ($http_user_agent ~* (Baiduspider|Baidu|Sogou|360Spider|YisouSpider|Yisou|YoudaoBot|Youdao|Sosospider|HaoSouSpider|PetalBot|Yandex|Amazonbot|AmazonProductDiscovery)) {
-    set $block_bot 1;
-}
-
-# Block empty User-Agent (common for scrapers)
-if ($http_user_agent = "") {
-    set $block_bot 1;
-}
-
-# Allowed tools: never block, even if matched above
-# (uptime monitoring and E2E test runners must reach the site)
-if ($http_user_agent ~* (HetrixTools|Playwright)) {
-    set $block_bot 0;
-}
-
-if ($block_bot = 1) {
-    return 444;
-}
-
-# Allowed AI crawlers (no explicit block needed, listed here for documentation):
-# GPTBot, OAI-SearchBot (ChatGPT/OpenAI)
-# ClaudeBot, anthropic-ai (Claude/Anthropic)
-# PerplexityBot (Perplexity)
-# Google-Extended (Gemini/Google AI)
-# Note: control access per-site via robots.txt if needed
-EOL
-  fi
+  echo "INFO Seeding bot policy (mode: ${mode})"
+  bash "${scriptDirectoryNginx}/bin/bot-policy/bot-policy.sh" "--seed=${mode}"
 }
 
 getNginxVersion() {

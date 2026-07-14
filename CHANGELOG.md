@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `bin/bot-policy/` — standalone whiptail TUI to manage nginx bot/crawler/search-engine rules per bot
+  instead of hand-editing `bot-filter.nginx`. Four rules per bot: no restriction, block only the
+  configured site-search URL(s) (e.g. to protect a Solr-backed TYPO3 search from high-volume crawlers
+  like Bytespider without blocking the bot entirely), full block, or always-allow (monitoring/E2E
+  tools). Built-in catalog of ~55 bots/crawlers/search engines with vendor info, info URL, and
+  robots.txt/security-scanner metadata for informed decisions; customer-addable entries. Edits go to a
+  draft first — `--activate` backs up the previous state, tests with `nginx -t`, and rolls back
+  automatically on failure. `--report` produces a plain-text summary (draft or `--active`) for customer
+  communication. Seeded from the previous hardcoded `botFilterMode` (production/staging) on first
+  install; `writeBotFilterSnippet()` in `lib/nginx.sh` now delegates to it instead of writing a
+  hardcoded snippet
 - fail2ban setup with nginx rate limiting: SSH + nginx jails, custom filters for SQL injection/LFI/XSS,
   repeated 4xx responses, login rate-limit violations, and TYPO3 frontend logins; login paths and an
   `ignoreip` allowlist are prompted during installation

@@ -1,48 +1,12 @@
-# Bot and AI Crawler Filter – PRODUCTION mode
+# Bot and Crawler Policy Filter
 #
-# NOTE: This file is overwritten by writeBotFilterSnippet() in lib/nginx.sh
-# during installation. A STAGING mode variant (blocks AI crawlers too) is
-# generated there as well, depending on ${botFilterMode}.
+# GENERATED FILE — DO NOT EDIT MANUALLY.
 #
-# Abusive scrapers and Bytedance are blocked.
-# Major AI assistants (ChatGPT, Claude, Perplexity, Gemini) are allowed
-# so the site remains discoverable via AI search tools.
-
-set $block_bot 0;
-
-# Always block: Bytedance/TikTok (history of abusive crawling causing server load)
-if ($http_user_agent ~* (Bytespider|ByteDance|TikTokSpider)) {
-    set $block_bot 1;
-}
-
-# Block SEO scrapers and aggressive crawlers (not search engines, purely commercial data harvesting)
-if ($http_user_agent ~* (AhrefsBot|SemrushBot|DotBot|MJ12bot|BLEXBot|DataForSeoBot|SeznamBot|MegaIndex|serpstatbot|SeekportBot|SEOkicks|SleepBot|Exabot|MauiBot|crawler4j|TurnitinBot|libwww-perl|Python-urllib|GrabNet|GetRight|Go!Zilla|SERanking|Indy\.Library|Omgilibot)) {
-    set $block_bot 1;
-}
-
-# Block search engine crawlers without relevant traffic for most DE/EU sites
-if ($http_user_agent ~* (Baiduspider|Baidu|Sogou|360Spider|YisouSpider|Yisou|YoudaoBot|Youdao|Sosospider|HaoSouSpider|PetalBot|Yandex|Amazonbot|AmazonProductDiscovery)) {
-    set $block_bot 1;
-}
-
-# Block empty User-Agent (common for scrapers)
-if ($http_user_agent = "") {
-    set $block_bot 1;
-}
-
-# Allowed tools: never block, even if matched above
-# (uptime monitoring and E2E test runners must reach the site)
-if ($http_user_agent ~* (HetrixTools|Playwright)) {
-    set $block_bot 0;
-}
-
-if ($block_bot = 1) {
-    return 444;
-}
-
-# Allowed AI crawlers (no explicit block needed, listed here for documentation):
-# GPTBot, OAI-SearchBot (ChatGPT/OpenAI)
-# ClaudeBot, anthropic-ai (Claude/Anthropic)
-# PerplexityBot (Perplexity)
-# Google-Extended (Gemini/Google AI)
-# Note: control access per-site via robots.txt if needed
+# This placeholder is copied to /etc/nginx/snippets/ during installation and
+# immediately overwritten by bin/bot-policy (see writeBotFilterSnippet() in
+# lib/nginx.sh, which seeds /etc/bot-policy/ and renders the real snippet).
+#
+# To change bot/crawler/search-engine rules after installation, run:
+#   bin/bot-policy/bot-policy.sh
+#
+# See bin/bot-policy/lib/render.sh for the generation logic.
