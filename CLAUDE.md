@@ -10,6 +10,8 @@ bin/
   tune-server.sh       # Resource tuning: PHP-FPM + MariaDB based on RAM/CPU (--dry-run supported)
   harden-ssh.sh        # Interactive SSH hardening: port change, key-only auth, UFW, Hetzner-aware
   setup-deploy-user.sh # Opt-in deploy user: own SSH login, sudo -u www-data, disable www-data login
+  fix-permissions.sh   # Reset composerDirectory ownership/permissions to setPermissions() baseline
+                       # (--dry-run supported); recovers from a deploy user working outside sudo -u www-data
   backup-database.sh   # Local DB dumps (operator-error safety net): excludes log/cache/session data,
                        # disk space check, retention, --install-cron for /etc/cron.d/typo3-db-backup
   check-image-processing.sh # Health check: GFX processor installed? WebP conversion works?
@@ -88,6 +90,17 @@ Nginx is compiled with Brotli (dynamic module) from source to match the installe
 `/fileadmin/` uses `location ^~ /fileadmin/` with a strict CSP (`default-src 'none'`) to prevent
 execution of uploaded files. The `^~` modifier stops PHP-FPM regex from matching fileadmin requests.
 The recycler block is nested inside the fileadmin location.
+
+## File Permissions
+
+`setPermissions()` in `users.sh` sets the site tree to `2770` (dirs, setgid) / `0660` (files),
+owned `www-data:www-data`. The setgid bit only makes new files inherit the `www-data` **group** —
+the write bit comes from the creating process's **umask**, not from the setgid bit. A deploy user
+who is a `www-data` group member but works directly (not via `sudo -u www-data`) can therefore
+create group-unwritable files, breaking write access for `www-data` (and other group members)
+afterwards. `bin/fix-permissions.sh` re-applies the `setPermissions()` baseline standalone
+(sources `config.sh` + `users.sh`, `--dry-run` supported); it excludes `install-log-please-remove.md`
+from the `0660` sweep (kept at `0600` — plaintext credentials) and does not touch `/var/www/.ssh/`.
 
 ## Resource Tuning
 
