@@ -12,6 +12,10 @@ bin/
   setup-deploy-user.sh # Opt-in deploy user: own SSH login, sudo -u www-data, disable www-data login
   fix-permissions.sh   # Reset composerDirectory ownership/permissions to setPermissions() baseline
                        # (--dry-run supported); recovers from a deploy user working outside sudo -u www-data
+  setup-www-data-deploy-key.sh # Opt-in outbound ed25519 key for www-data (git pull against private
+                       # repos); idempotent, --dry-run supported. Separate from /var/www/.ssh/authorized_keys
+                       # (inbound login) — sudo -u www-data does not forward the deploy user's SSH agent,
+                       # so www-data needs its own credential for outbound git
   backup-database.sh   # Local DB dumps (operator-error safety net): excludes log/cache/session data,
                        # disk space check, retention, --install-cron for /etc/cron.d/typo3-db-backup
   check-image-processing.sh # Health check: GFX processor installed? WebP conversion works?

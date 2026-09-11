@@ -43,6 +43,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   incident where a migrated `settings.php` referenced GraphicsMagick on a server that only has
   ImageMagick — every new image processing failed silently and plan2net/webp left empty `.webp`
   files that nginx served as broken images
+- `bin/setup-www-data-deploy-key.sh` — opt-in outbound ed25519 key for `www-data`, for `git pull`
+  against private repositories via `sudo -u www-data` (the deploy user's SSH agent is not forwarded
+  into that session); idempotent, `--dry-run` supported, separate from `/var/www/.ssh/authorized_keys`
 
 ### Changed
 

@@ -35,6 +35,7 @@ installations can be resumed at any step.
 | **Resource tuning**   | `bin/tune-server.sh` — PHP-FPM + MariaDB tuned to server RAM/CPU                    |
 | **SSH hardening**     | `bin/harden-ssh.sh` — interactive port change, key-only auth, Hetzner-aware         |
 | **Deploy user**       | `bin/setup-deploy-user.sh` — dedicated SSH login with `sudo -u www-data` (opt-in)   |
+| **Deploy key**        | `bin/setup-www-data-deploy-key.sh` — outbound SSH key for `www-data` (opt-in)       |
 | **Permission repair** | `bin/fix-permissions.sh` — reset site file ownership/permissions after drift        |
 | **DB backup**         | `bin/backup-database.sh` — local dumps every 6 h (operator-error safety net)        |
 | **Slow log**          | `bin/toggle-php-slowlog.sh` — enable/disable PHP-FPM slow log (threshold 2s)        |
@@ -120,6 +121,7 @@ server-install/
 │   ├── tune-server.sh                     # Resource tuning (PHP-FPM + MariaDB)
 │   ├── harden-ssh.sh                      # Interactive SSH hardening (port change, key-only auth)
 │   ├── setup-deploy-user.sh               # Dedicated deploy user instead of direct www-data SSH login
+│   ├── setup-www-data-deploy-key.sh       # Outbound SSH key for www-data (git pull against private repos)
 │   ├── fix-permissions.sh                 # Reset site file ownership/permissions after drift
 │   ├── backup-database.sh                 # Local DB dumps: excludes, space check, retention, cron
 │   ├── check-image-processing.sh          # GFX processor + WebP conversion health (run after migrations)
@@ -482,6 +484,31 @@ The sudo rule is written to `/etc/sudoers.d/deploy` and validated with `visudo -
 > still comes from the umask of whoever created it. A file the deploy user creates directly can end up
 > group-unwritable, causing "Permission denied" for `www-data` (or other deploy users) afterwards. If that
 > happens, run `bin/fix-permissions.sh` to reset the tree back to the installer's baseline.
+
+### www-data Deploy Key (opt-in)
+
+`git pull` against a private repository (the site's own composer.json-managed codebase) needs its own
+credential once the deploy user is separated from `www-data`: `sudo -u www-data` does not forward the deploy
+user's SSH agent, so `www-data` has no way to authenticate outbound otherwise. `bin/setup-www-data-deploy-key.sh`
+generates a dedicated, passphrase-less ed25519 key for `www-data` — outbound only, unrelated to
+`/var/www/.ssh/authorized_keys` (inbound login):
+
+```bash
+bin/setup-www-data-deploy-key.sh --dry-run   # Preview without applying
+bin/setup-www-data-deploy-key.sh             # Generate (idempotent) and print the public key
+```
+
+Register the printed public key as a **read-only** deploy key on the git remote (GitHub: Repo → Settings →
+Deploy keys, leave "Allow write access" unchecked). Then, from a `sudo -u www-data -i` shell, the first
+connection to a new host asks to confirm its host key (normal SSH TOFU behaviour) — answer `yes` once.
+
+> Only needed for git-based deployment against a private remote. If the site is installed purely via public
+> Composer packages, skip this — there's nothing for `www-data` to authenticate against.
+>
+> This key must never leave `/var/www/.ssh/` and is scoped read-only on the remote — it does **not** need
+> `rsync`-style access to another server. For pulling content between servers (e.g. fileadmin from a live
+> instance), see the `--chmod` pattern under [Troubleshooting](#permission-denied-on-git-pull--composer-install)
+> instead of adding more outbound keys.
 
 ### fail2ban
 
