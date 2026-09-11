@@ -17,8 +17,21 @@ location ~* ^/_assets/.*\.(css|js|mjs|svg|woff2?|ttf|eot|otf|json)$ {
     access_log off;
 }
 
-# Images and media files
-location ~* \.(jpg|jpeg|png|gif|ico|webp|avif|svg)$ {
+# Bitmap images with WebP variants: serve a pre-generated .webp next to the
+# original when the browser accepts it ($webp_suffix map from webp.conf,
+# variants written by plan2net/webp). This location must handle the WebP
+# switch itself — regex locations are matched in include order, so a separate
+# WebP location after this include would never be reached.
+location ~* \.(jpg|jpeg|png|gif)$ {
+    expires 30d;
+    add_header Cache-Control "public, no-transform";
+    add_header Vary "Accept, Accept-Encoding";
+    access_log off;
+    try_files $uri$webp_suffix $uri =404;
+}
+
+# Other image formats
+location ~* \.(ico|webp|avif|svg)$ {
     expires 30d;
     add_header Cache-Control "public, no-transform";
     add_header Vary "Accept, Accept-Encoding";

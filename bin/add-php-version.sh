@@ -4,8 +4,10 @@
 #
 # Reads the installed modules of the currently active PHP-FPM version and installs
 # the same modules for the new version. Applies settings from config/php-settings.sh.
-# Does NOT switch the active PHP version in Nginx or update-alternatives — that
-# remains a deliberate manual step.
+# Does NOT switch the active PHP version in Nginx — that remains a deliberate
+# manual step. Asks whether the CLI default (update-alternatives) should follow
+# the new version; declining, or running without a terminal, keeps the previous
+# CLI version pinned.
 #
 # Usage:
 #   bin/add-php-version.sh <version>   e.g.: bin/add-php-version.sh 8.3
@@ -14,6 +16,8 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../lib/utils.sh
 source "${SCRIPT_DIR}/../lib/utils.sh"
+# shellcheck source=../lib/system.sh
+source "${SCRIPT_DIR}/../lib/system.sh"
 
 # ── Parse arguments ───────────────────────────────────────────────────────────
 
@@ -86,34 +90,36 @@ fi
 
 UBUNTU_VERSION=$(lsb_release -rs 2>/dev/null || echo "unknown")
 
-# ── Check if ondrej/php PPA is needed ────────────────────────────────────────
-# Required for PHP 8.4+ on Ubuntu 24.04, and for any version on Ubuntu 22.04/20.04
-# that is not in the default repositories.
+# ── Check if the packages.sury.org PHP repository is needed ──────────────────
+# Required for every version other than 8.5 on Ubuntu 26.04, for PHP 8.4+ on
+# Ubuntu 24.04, and for any version on Ubuntu 22.04/20.04 that is not in the
+# default repositories.
 
-REQUIRES_PPA=false
+REQUIRES_PHP_REPO=false
 case "${UBUNTU_VERSION}" in
+  26.04)
+    # Ubuntu 26.04 ships PHP 8.5 only
+    if [[ "${TARGET_VERSION}" != "8.5" ]]; then
+      REQUIRES_PHP_REPO=true
+    fi
+    ;;
   24.04)
     if [[ "${TARGET_VERSION}" == "8.4" ]] || [[ "$(echo "${TARGET_VERSION} 8.4" | awk '{print ($1 > $2)}')" == "1" ]]; then
-      REQUIRES_PPA=true
+      REQUIRES_PHP_REPO=true
     fi
     ;;
   22.04|20.04)
-    REQUIRES_PPA=true
+    REQUIRES_PHP_REPO=true
     ;;
 esac
 
-if $REQUIRES_PPA; then
-  if ! grep -r "ondrej/php" /etc/apt/sources.list.d/ &>/dev/null; then
-    echo "INFO ondrej/php PPA required for PHP ${TARGET_VERSION} on Ubuntu ${UBUNTU_VERSION}"
-    if ! $DRY_RUN; then
-      apt --assume-yes install software-properties-common
-      add-apt-repository --yes ppa:ondrej/php
-      apt update
-    else
-      echo "  [dry-run] Would add ppa:ondrej/php and run apt update"
-    fi
+if $REQUIRES_PHP_REPO; then
+  if [[ -f /etc/apt/sources.list.d/php.list ]] && grep -q "packages.sury.org" /etc/apt/sources.list.d/php.list; then
+    echo "INFO packages.sury.org PHP repository already configured"
+  elif ! $DRY_RUN; then
+    addPhpRepo "${TARGET_VERSION}"
   else
-    echo "INFO ondrej/php PPA already configured"
+    echo "  [dry-run] Would add the packages.sury.org PHP repository"
   fi
 fi
 
@@ -172,15 +178,51 @@ if $DRY_RUN; then
   exit 0
 fi
 
+# Remember the CLI version before apt runs: in auto mode, update-alternatives
+# switches /usr/bin/php to the highest-priority (newest) version on install.
+PREVIOUS_CLI_VERSION=""
+if command -v php &>/dev/null; then
+  PREVIOUS_CLI_VERSION=$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;' 2>/dev/null || true)
+fi
+
 # ── Install target PHP version and modules ────────────────────────────────────
 
 echo "INFO Installing PHP ${TARGET_VERSION} and modules..."
 apt --assume-yes install "${TARGET_PACKAGES[@]}" \
   || die "Package installation failed — check apt output above"
 
-# Pin CLI version if PPA is used (prevents newer version from becoming default)
-if $REQUIRES_PPA && [ -f "/usr/bin/php${TARGET_VERSION}" ]; then
-  update-alternatives --set php "/usr/bin/php${TARGET_VERSION}" 2>/dev/null || true
+# ── CLI default ───────────────────────────────────────────────────────────────
+# With one application per server, CLI and PHP-FPM should usually run the same
+# version, so switching is the default answer. On servers hosting several
+# applications, the previous CLI version can be kept.
+
+CLI_SWITCHED=false
+SWITCH_CLI=false
+if [ -f "/usr/bin/php${TARGET_VERSION}" ]; then
+  if [ -t 0 ]; then
+    echo ""
+    read -rp "Set PHP ${TARGET_VERSION} as the CLI default (previously: ${PREVIOUS_CLI_VERSION:-none})? [Y/n] " cliResponse
+    if [[ ! "${cliResponse}" =~ ^[nN]$ ]]; then
+      SWITCH_CLI=true
+    fi
+  else
+    echo "INFO No terminal — keeping the previous CLI version"
+  fi
+fi
+
+if $SWITCH_CLI; then
+  if update-alternatives --set php "/usr/bin/php${TARGET_VERSION}"; then
+    CLI_SWITCHED=true
+  else
+    warn "update-alternatives failed — CLI default unchanged"
+  fi
+elif [ -n "${PREVIOUS_CLI_VERSION}" ] && [ -f "/usr/bin/php${PREVIOUS_CLI_VERSION}" ]; then
+  # Pin explicitly: auto mode may already point to the newly installed version
+  if update-alternatives --set php "/usr/bin/php${PREVIOUS_CLI_VERSION}"; then
+    echo "INFO CLI stays on PHP ${PREVIOUS_CLI_VERSION}"
+  else
+    warn "update-alternatives failed — check the CLI default with: php -v"
+  fi
 fi
 
 # ── Apply central PHP settings ────────────────────────────────────────────────
@@ -203,5 +245,9 @@ echo "    Change: fastcgi_pass unix:/var/run/php/php${SOURCE_VERSION}-fpm.sock;"
 echo "    To:     fastcgi_pass unix:/var/run/php/php${TARGET_VERSION}-fpm.sock;"
 echo "    Then:   nginx -t && systemctl reload nginx"
 echo ""
-echo "  To set PHP ${TARGET_VERSION} as the CLI default:"
-echo "    update-alternatives --set php /usr/bin/php${TARGET_VERSION}"
+if $CLI_SWITCHED; then
+  echo "  CLI default    : PHP ${TARGET_VERSION}"
+else
+  echo "  To set PHP ${TARGET_VERSION} as the CLI default later:"
+  echo "    update-alternatives --set php /usr/bin/php${TARGET_VERSION}"
+fi

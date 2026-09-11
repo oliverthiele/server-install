@@ -4,8 +4,13 @@
 # Place this in your server block before other location directives.
 
 # Block WordPress/CMS probes — a TYPO3 site never serves these paths,
-# so any request to them is a scan, not a legitimate visitor
-if ($request_uri ~* "wp-login\.php|wp-admin|wp-content|wp-includes|xmlrpc\.php") {
+# so any request to them is a scan, not a legitimate visitor.
+# Anchored to path-segment boundaries: probes request /wp-login.php or
+# /wp-content/..., while uploaded files may legitimately contain "wp-content"
+# in the middle of their filename (e.g. images named after a source URL,
+# fileadmin/_processed_/...httpwww.example.comwp-contentuploads...jpg)
+# and must not be blocked.
+if ($request_uri ~* "(^|/)(wp-admin|wp-content|wp-includes)(/|\?|$)|(^|/)(wp-login|xmlrpc)\.php") {
     return 444;
 }
 

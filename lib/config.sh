@@ -96,11 +96,28 @@ setVariables() {
 
   # Bot filter mode
   echo "---------------------------------------"
-  echo "Select bot filter mode:"
-  echo "  1) Staging  – block all AI crawlers and SEO scrapers (no indexing)"
-  echo "  2) Production – block abusive bots only, allow major AI assistants"
-  echo "     (ChatGPT, Claude, Perplexity, Gemini — for discoverability)"
-  echo "     Bytespider (Bytedance/TikTok) is always blocked due to abusive crawling."
+  echo "Nginx bot filter — blocks unwanted crawlers by User-Agent (HTTP 444, connection dropped)."
+  echo ""
+  echo "Blocked in BOTH modes:"
+  echo "  - SEO/marketing scrapers that harvest data commercially without bringing"
+  echo "    visitors (AhrefsBot, SemrushBot, MJ12bot, DotBot, ...)"
+  echo "  - Search engines without relevant traffic for most DE/EU sites"
+  echo "    (Baidu, Sogou, Yandex, PetalBot, Amazonbot, ...)"
+  echo "  - Bytespider (Bytedance/TikTok) — history of abusive high-volume crawling"
+  echo "  - Requests with an empty User-Agent header (typical for scrapers)"
+  echo ""
+  echo "Never blocked (allowlist): Google/Bing search, uptime monitoring (HetrixTools),"
+  echo "E2E test runners (Playwright)."
+  echo ""
+  echo "The difference between the modes is AI crawlers only:"
+  echo "  1) Staging – additionally blocks ALL AI crawlers and assistants"
+  echo "     (GPTBot, ClaudeBot, PerplexityBot, Google-Extended, CCBot, meta, Apple)."
+  echo "     For preview/staging systems that must not end up in any AI index."
+  echo "  2) Production – allows major AI assistants (ChatGPT, Claude, Perplexity,"
+  echo "     Gemini) so the site remains discoverable via AI search."
+  echo ""
+  echo "The list can be edited later in /etc/nginx/snippets/bot-filter.nginx,"
+  echo "individual AI crawlers can also be controlled per-site via robots.txt."
   read -rp 'Option [2]: ' botFilterOption
   case "${botFilterOption}" in
   1)
@@ -136,9 +153,69 @@ setVariables() {
   fi
   echo ""
 
+  # TYPO3 frontend login paths for nginx rate limiting and fail2ban
+  echo "---------------------------------------"
+  echo "TYPO3 frontend login protection (nginx rate limiting + fail2ban)."
+  echo "Only relevant if the site will have a frontend login (member area,"
+  echo "customer portal). Both protections can be added later at any time:"
+  echo "  nginx:    /etc/nginx/snippets/rate-limiting-login.nginx  (+ nginx reload)"
+  echo "  fail2ban: /etc/fail2ban/jail.local [typo3-fe-login]      (+ fail2ban reload)"
+  read -rp "Will this site have a frontend login? [y/N]: " loginOption
+  if [[ "${loginOption}" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+    hasFrontendLogin='true'
+    echo "Enter the URL paths for the login pages of your TYPO3 site."
+    read -rp "Login path DE [/anmeldung/]: " input
+    typo3LoginPathDE=${input:-/anmeldung/}
+
+    read -rp "Login path EN [/en/login/]: " input
+    typo3LoginPathEN=${input:-/en/login/}
+
+    echo "Login paths: ${typo3LoginPathDE} (DE), ${typo3LoginPathEN} (EN)"
+  else
+    hasFrontendLogin='false'
+    typo3LoginPathDE=''
+    typo3LoginPathEN=''
+    echo "No frontend login — login rate limiting and typo3-fe-login jail are skipped."
+  fi
+  echo ""
+
+  # Node.js version for frontend builds (installed via nvm for www-data)
+  echo "---------------------------------------"
+  echo "Select the Node.js version for frontend builds (installed via nvm):"
+  echo "  1) Node.js 24 (Active LTS, default)"
+  echo "  2) Node.js 22 (maintenance mode from October 2026 — for legacy builds)"
+  read -rp 'Option [1]: ' nodeOption
+  case "${nodeOption}" in
+  2)
+    nodeVersion='22'
+    ;;
+  *)
+    nodeVersion='24'
+    ;;
+  esac
+  echo "Node.js version: ${nodeVersion}"
+  echo ""
+
+  # fail2ban: additional IP addresses / ranges to whitelist
+  echo "---------------------------------------"
+  echo "fail2ban ignoreip — addresses that are NEVER banned (lockout protection)."
+  echo "Only add STATIC addresses: a company office with a fixed IP, or a VPN"
+  echo "server (e.g. WireGuard) that admins connect through."
+  echo "Do NOT add dynamic home/mobile IPs — once the provider reassigns them,"
+  echo "a stale entry whitelists a stranger. If you have neither, leave empty;"
+  echo "add later in /etc/fail2ban/jail.local (ignoreip) + 'systemctl reload fail2ban'."
+  read -rp "Static ignoreip entries (space-separated, Enter to skip): " input
+  fail2banIgnoreIp=${input:-}
+  if [[ -n "${fail2banIgnoreIp}" ]]; then
+    echo "fail2ban ignoreip: 127.0.0.1/8 ::1 ${fail2banIgnoreIp}"
+  fi
+  echo ""
+
   # Export variables for use in other modules
   export wwwRoot composerDirectory typo3PublicDirectory
   export typo3CliName pathSettings pathAdditionalSettings systemPass
   export serverDomain adminEmail adminRealName botFilterMode
   export enableBasicAuth basicAuthUser basicAuthPassword
+  export hasFrontendLogin typo3LoginPathDE typo3LoginPathEN fail2banIgnoreIp
+  export nodeVersion
 }

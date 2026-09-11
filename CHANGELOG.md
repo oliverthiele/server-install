@@ -5,6 +5,110 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] — 2026-09-11
+
+### Added
+
+- `bin/bot-policy/` — standalone whiptail TUI to manage nginx bot/crawler/search-engine rules per bot
+  instead of hand-editing `bot-filter.nginx`. Four rules per bot: no restriction, block only the
+  configured site-search URL(s) (e.g. to protect a Solr-backed TYPO3 search from high-volume crawlers
+  like Bytespider without blocking the bot entirely), full block, or always-allow (monitoring/E2E
+  tools). Built-in catalog of ~55 bots/crawlers/search engines with vendor info, info URL, and
+  robots.txt/security-scanner metadata for informed decisions; customer-addable entries. Edits go to a
+  draft first — `--activate` backs up the previous state, tests with `nginx -t`, and rolls back
+  automatically on failure. `--report` produces a plain-text summary (draft or `--active`) for customer
+  communication. Seeded from the previous hardcoded `botFilterMode` (production/staging) on first
+  install; `writeBotFilterSnippet()` in `lib/nginx.sh` now delegates to it instead of writing a
+  hardcoded snippet
+- fail2ban setup with nginx rate limiting: SSH + nginx jails, custom filters for SQL injection/LFI/XSS,
+  repeated 4xx responses, login rate-limit violations, and TYPO3 frontend logins; login paths and an
+  `ignoreip` allowlist are prompted during installation
+- `bin/setup-deploy-user.sh` — opt-in dedicated deploy user (own SSH login, `sudo -u www-data`, optional
+  deactivation of the direct www-data SSH login); also offered at the end of `install.sh`
+- Unattended security upgrades enabled during installation (`configureUnattendedUpgrades()`), automatic
+  reboots explicitly disabled
+- `backend-ip-restriction.nginx` snippet — opt-in IP allowlist for `/typo3/`, generated with the correct
+  PHP-FPM socket, disabled by default (commented include, RFC 5737 example IPs)
+- `bin/backup-database.sh` — local database dumps as a safety net against operator errors: schema of all
+  tables, data of `sys_log` / `sys_history` / `cache_*` / sessions excluded, disk space check before each
+  dump, 7-day retention, `--install-cron` for a 6-hour schedule; offered at the end of `install.sh`.
+  Documentation makes the scope explicit: local dumps do not replace off-site backups
+- `bin/migrate-php-repo.sh` — switch existing servers from `ppa:ondrej/php` to packages.sury.org
+- Frontend login question in the installer: login rate limiting and the `typo3-fe-login` jail are only
+  configured when the site has a frontend login; otherwise a placeholder snippet documents how to
+  enable both later (nginx snippet + fail2ban jail)
+- `bin/check-image-processing.sh` — health check for TYPO3 image processing: verifies the GFX
+  processor from `settings.php` is actually installed, runs a real JPEG→WebP test conversion, checks
+  PHP GD WebP support, and counts 0-byte `.webp` leftovers under fileadmin. Motivated by a live
+  incident where a migrated `settings.php` referenced GraphicsMagick on a server that only has
+  ImageMagick — every new image processing failed silently and plan2net/webp left empty `.webp`
+  files that nginx served as broken images
+- `bin/setup-www-data-deploy-key.sh` — opt-in outbound ed25519 key for `www-data`, for `git pull`
+  against private repositories via `sudo -u www-data` (the deploy user's SSH agent is not forwarded
+  into that session); idempotent, `--dry-run` supported, separate from `/var/www/.ssh/authorized_keys`
+
+### Changed
+
+- PHP repository for new installs switched from `ppa:ondrej/php` to packages.sury.org (successor
+  repository, Launchpad builds discontinued)
+- fail2ban: all nginx jails now set `port = http,https` — a web-scanner ban can no longer lock an IP out
+  of SSH via the nftables default port fallback
+- fail2ban `typo3-fe-login` filter only counts POST requests with status 200/403 — successful logins
+  (302/303 redirect) are never counted towards a ban
+- fail2ban SQLi/LFI filter matches case-insensitively (`UNION SELECT` in any casing) and bans immediately
+  on reconnaissance probes for `wp-login.php`, `wp-admin/`, `xmlrpc.php`, `/.env`, `/.git/`, phpMyAdmin
+- Bot filter prompt in the installer now explains in detail which bot categories are blocked in both
+  modes, what is never blocked, and that the two modes only differ in AI crawler handling
+- Node.js default raised from 22 to 24 (Active LTS; Node 22 enters maintenance mode in October 2026);
+  the version is now selectable during installation and persisted as `NODE_VERSION` in the state config
+- fail2ban `ignoreip` prompt now asks explicitly for static addresses only (company office with fixed
+  IP, VPN server) and warns against dynamic home/mobile IPs — stale entries would whitelist strangers
+  once the provider reassigns them
+- `bin/add-php-version.sh` asks whether the CLI default (`update-alternatives`) should switch to the
+  new version (default: yes). Declining, or running without a terminal, pins the previous CLI version.
+  Previously the CLI was switched silently whenever packages.sury.org was used, contrary to the
+  script's own description
+
+### Fixed
+
+- fail2ban custom filters never matched at runtime: fail2ban strips the detected timestamp from the log
+  line before applying `failregex`, so the `\[[^\]]+\]` date pattern (one or more characters) silently
+  matched nothing — all four custom jails (`nginx-sqli-lfi`, `nginx-4xx`, `nginx-login-ratelimit`,
+  `typo3-fe-login`) were ineffective. Pattern changed to `\[[^\]]*\]`; `_testFail2banFilters()` now runs
+  a positive-control test with synthetic attack lines so a non-matching filter is reported during install
+- `nginx-4xx` filter banned legitimate users. Observed on a real install: 30× status 444 on a valid
+  `fileadmin` image (blocked by the WordPress probe filter, see below), plus 401s (normal BasicAuth
+  handshake) and 499s (client closed connection) counted towards the ban limit. The filter now counts
+  only explicit signal codes — 403 (access denied) and 429 (rate limited) — instead of excluding an
+  ever-growing list of noisy codes, and TYPO3 backend requests (`/typo3`) are excluded via
+  `ignoreregex` because an open backend tab with an expired session produces repeated 403s via ajax
+- WordPress probe filter in `typo3-security-filter.nginx` matched `wp-admin`/`wp-content`/… anywhere
+  in the URI and blocked legitimate uploads whose filename contains a source URL (e.g.
+  `fileadmin/_processed_/…httpwww.example.comwp-contentuploads….jpg`). Patterns are now anchored to
+  path-segment boundaries (`/wp-content/…`, `/wp-login.php`)
+- fileadmin responses were served without any cache headers (Lighthouse: "Use efficient cache
+  lifetimes", Cache TTL "None"): the `^~ /fileadmin/` security location stops regex matching, so the
+  caching rules from `caching.nginx` never applied there. The fileadmin block now contains nested
+  cache locations (images 30 d with WebP delivery, fonts 1 y, media/PDF 7 d, SVG with CSP + 30 d);
+  security rules keep precedence
+- WebP variant delivery was dead configuration site-wide: the image location in `caching.nginx`
+  matched before the WebP location in `typo3.nginx` (regex locations match in include order), so
+  pre-generated `.webp` files were never served. WebP handling moved into the image location of
+  `caching.nginx`; the dead location was removed
+- State config mangled passwords containing `$` on resume: `saveConfig()` wrote values in double
+  quotes, and `loadConfig()` re-reads the file via `source` — shell expansion turned a generated
+  password like `…S*$kt` into `…S*`, so every consumer after a resume used a wrong value (observed:
+  regenerated `.htpasswd` no longer matched the documented BasicAuth password). All values are now
+  serialized shell-quoted via `printf %q`
+- MariaDB tuning from `bin/tune-server.sh` never took effect: it was written to
+  `/etc/mysql/mariadb.conf.d/99-tuning.conf`, but `!includedir` only reads files ending in `.cnf`, so
+  MariaDB kept its defaults. The drop-in is now `99-tuning.cnf`; an existing `99-tuning.conf` is
+  reported in the summary and removed when the tuning is applied
+- `bin/add-php-version.sh` did not add the packages.sury.org repository on Ubuntu 26.04, so installing
+  any version other than the distribution's PHP 8.5 (e.g. 8.4) failed at `apt install`
+
+---
+
 ## [1.3.0] — 2026-06-25
 
 ### Added
@@ -198,6 +302,7 @@ in a single script run.
 - Colorized "INSTALLATION COMPLETE" summary with all credentials and numbered next steps
 - ShellCheck CI workflow (GitHub Actions)
 
+[1.4.0]: https://github.com/oliverthiele/server-install/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/oliverthiele/server-install/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/oliverthiele/server-install/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/oliverthiele/server-install/compare/v1.1.0...v1.1.1

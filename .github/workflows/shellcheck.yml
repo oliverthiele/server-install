@@ -25,4 +25,4 @@ jobs:
 
       - name: Run shellcheck
         run: |
-          shellcheck install.sh lib/*.sh bin/*.sh
+          shellcheck install.sh lib/*.sh bin/*.sh bin/bot-policy/*.sh bin/bot-policy/lib/*.sh

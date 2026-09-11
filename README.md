@@ -17,33 +17,39 @@ installations can be resumed at any step.
 
 ## Features
 
-| Category            | Details                                                                             |
-|---------------------|-------------------------------------------------------------------------------------|
-| **TYPO3**           | v12.4 LTS, v13.4 LTS and v14 (interactive selection)                                |
-| **Ubuntu**          | 22.04, 24.04, 26.04 (recommended) — 20.04 legacy¹                                   |
-| **PHP**             | 8.1 / 8.3 / 8.4 — ondrej/php PPA for PHP 8.4 on 24.04                               |
-| **Web server**      | Nginx with dynamically compiled Brotli module                                       |
-| **Database**        | MariaDB with automated hardening                                                    |
-| **Cache**           | Redis with `requirepass` authentication, page and section cache pre-configured      |
-| **Security**        | SSH hardening, fileadmin CSP, SSL/TLS, HTTP method filtering, kernel hardening      |
-| **Performance**     | TCP BBR, Brotli + Gzip, browser caching, OPcache tuning, PHP-FPM slow log           |
-| **Scheduler**       | TYPO3 Scheduler cronjob pre-configured (every 5 min, `/etc/cron.d/typo3-scheduler`) |
-| **CLI context**     | `TYPO3_CONTEXT` auto-set from nginx config on every shell login (root + www-data)   |
-| **Resume support**  | Interrupted installations resume at the last completed step                         |
-| **Resource tuning** | `bin/tune-server.sh` — PHP-FPM + MariaDB tuned to server RAM/CPU                    |
-| **SSH hardening**   | `bin/harden-ssh.sh` — interactive port change, key-only auth, Hetzner-aware         |
-| **Slow log**        | `bin/toggle-php-slowlog.sh` — enable/disable PHP-FPM slow log (threshold 2s)        |
+| Category              | Details                                                                             |
+|-----------------------|-------------------------------------------------------------------------------------|
+| **TYPO3**             | v12.4 LTS, v13.4 LTS and v14 (interactive selection)                                |
+| **Ubuntu**            | 22.04, 24.04, 26.04 (recommended) — 20.04 legacy¹                                   |
+| **PHP**               | 8.1 / 8.3 / 8.4 — packages.sury.org repository for PHP 8.4 on 24.04                 |
+| **Web server**        | Nginx with dynamically compiled Brotli module                                       |
+| **Database**          | MariaDB with automated hardening                                                    |
+| **Cache**             | Redis with `requirepass` authentication, page and section cache pre-configured      |
+| **Security**          | SSH hardening, fileadmin CSP, SSL/TLS, HTTP method filtering, kernel hardening      |
+| **fail2ban**          | SSH + nginx jails, TYPO3 login filter, rate-limit bans, IP allowlist                |
+| **Auto updates**      | Unattended security upgrades (no automatic reboots)                                 |
+| **Performance**       | TCP BBR, Brotli + Gzip, browser caching, OPcache tuning, PHP-FPM slow log           |
+| **Scheduler**         | TYPO3 Scheduler cronjob pre-configured (every 5 min, `/etc/cron.d/typo3-scheduler`) |
+| **CLI context**       | `TYPO3_CONTEXT` auto-set from nginx config on every shell login (root + www-data)   |
+| **Resume support**    | Interrupted installations resume at the last completed step                         |
+| **Resource tuning**   | `bin/tune-server.sh` — PHP-FPM + MariaDB tuned to server RAM/CPU                    |
+| **SSH hardening**     | `bin/harden-ssh.sh` — interactive port change, key-only auth, Hetzner-aware         |
+| **Deploy user**       | `bin/setup-deploy-user.sh` — dedicated SSH login with `sudo -u www-data` (opt-in)   |
+| **Deploy key**        | `bin/setup-www-data-deploy-key.sh` — outbound SSH key for `www-data` (opt-in)       |
+| **Permission repair** | `bin/fix-permissions.sh` — reset site file ownership/permissions after drift        |
+| **DB backup**         | `bin/backup-database.sh` — local dumps every 6 h (operator-error safety net)        |
+| **Slow log**          | `bin/toggle-php-slowlog.sh` — enable/disable PHP-FPM slow log (threshold 2s)        |
 
 ## Requirements
 
-| Requirement          | Details                                                                           |
-|----------------------|-----------------------------------------------------------------------------------|
-| OS                   | Ubuntu 22.04, 24.04, or 26.04 LTS (fresh installation, nothing else running)     |
-| RAM                  | 2 GB minimum recommended                                                          |
-| Disk                 | 4 GB free on `/`                                                                  |
-| Internet             | Required (apt, Composer, GitHub for Brotli source)                                |
-| SSH key              | Public key in `/root/.ssh/authorized_keys` before running                         |
-| Conflicting services | No Apache2, no existing Nginx site configs, ports 80/443 free                     |
+| Requirement          | Details                                                                      |
+|----------------------|------------------------------------------------------------------------------|
+| OS                   | Ubuntu 22.04, 24.04, or 26.04 LTS (fresh installation, nothing else running) |
+| RAM                  | 2 GB minimum recommended                                                     |
+| Disk                 | 4 GB free on `/`                                                             |
+| Internet             | Required (apt, Composer, GitHub for Brotli source)                           |
+| SSH key              | Public key in `/root/.ssh/authorized_keys` before running                    |
+| Conflicting services | No Apache2, no existing Nginx site configs, ports 80/443 free                |
 
 The installer runs a pre-flight check at startup and will stop or warn if any of these conditions are not met.
 
@@ -101,39 +107,59 @@ chmod +x install.sh
 sudo ./install.sh
 ```
 
-The installer runs interactively and asks for: TYPO3 version, PHP version, domain, and admin email. At the end it
-optionally runs `bin/tune-server.sh` and `bin/harden-ssh.sh`.
+The installer runs interactively and asks for: TYPO3 version, PHP version, domain, admin email, bot filter mode,
+BasicAuth, frontend login (paths for rate limiting + fail2ban, skippable), static fail2ban IP allowlist, and Node.js
+version (24 or 22). At the end it optionally runs
+`bin/tune-server.sh`, `bin/harden-ssh.sh`, `bin/setup-deploy-user.sh`, and `bin/backup-database.sh --install-cron`.
 
 ## Project Structure
 
 ```
 server-install/
-├── install.sh                          # Main entry point, orchestrates all steps
+├── install.sh                             # Main entry point, orchestrates all steps
 ├── bin/
-│   ├── tune-server.sh                  # Resource tuning (PHP-FPM + MariaDB)
-│   ├── harden-ssh.sh                   # Interactive SSH hardening (port change, key-only auth)
-│   └── toggle-php-slowlog.sh           # Enable/disable PHP-FPM slow log
+│   ├── tune-server.sh                     # Resource tuning (PHP-FPM + MariaDB)
+│   ├── harden-ssh.sh                      # Interactive SSH hardening (port change, key-only auth)
+│   ├── setup-deploy-user.sh               # Dedicated deploy user instead of direct www-data SSH login
+│   ├── setup-www-data-deploy-key.sh       # Outbound SSH key for www-data (git pull against private repos)
+│   ├── fix-permissions.sh                 # Reset site file ownership/permissions after drift
+│   ├── backup-database.sh                 # Local DB dumps: excludes, space check, retention, cron
+│   ├── check-image-processing.sh          # GFX processor + WebP conversion health (run after migrations)
+│   ├── add-php-version.sh                 # Install an additional PHP version side by side
+│   ├── apply-php-settings.sh              # Re-apply optimized PHP settings after updates
+│   ├── migrate-php-repo.sh                # Switch existing servers from ppa:ondrej/php to packages.sury.org
+│   ├── toggle-php-slowlog.sh              # Enable/disable PHP-FPM slow log
+│   └── bot-policy/                        # Bot/crawler/search-engine rule management (whiptail TUI)
+│       ├── bot-policy.sh                  # Entry point: --report / --activate / --seed / interactive menu
+│       ├── lib/                           # storage.sh, render.sh, menu.sh, report.sh
+│       └── data/default-bots.json         # Built-in catalog (~55 bots, seeded into /etc/bot-policy/)
 ├── lib/
-│   ├── state.sh                        # Resume support: saveConfig(), loadConfig(), isStepComplete()
-│   ├── config.sh                       # Interactive prompts: TYPO3 version, domain, email
-│   ├── utils.sh                        # generatePassword(), getUbuntuVersionAndSetPhpVersion()
-│   ├── system.sh                       # System packages, Composer, PHP PPA, Node.js, Zsh
-│   ├── php.sh                          # PHP-FPM settings, OPcache, php-redis
-│   ├── database.sh                     # MariaDB: create database and user
-│   ├── nginx.sh                        # Nginx + Brotli, site config, fileadmin CSP
-│   ├── typo3.sh                        # TYPO3 Composer install, activation, .env setup
-│   ├── users.sh                        # www-data user, SSH keys, file permissions
-│   └── security.sh                     # SSH, MariaDB, kernel, SSL/TLS, logrotate
+│   ├── state.sh                           # Resume support: saveConfig(), loadConfig(), isStepComplete()
+│   ├── config.sh                          # Interactive prompts: TYPO3 version, domain, email, bot filter
+│   ├── utils.sh                           # generatePassword(), getUbuntuVersionAndSetPhpVersion()
+│   ├── system.sh                          # System packages, Composer, PHP repository, Node.js, Zsh
+│   ├── php.sh                             # PHP-FPM settings, OPcache, php-redis
+│   ├── database.sh                        # MariaDB: create database and user
+│   ├── nginx.sh                           # Nginx + Brotli, site config, fileadmin CSP
+│   ├── typo3.sh                           # TYPO3 Composer install, activation, .env setup
+│   ├── users.sh                           # www-data user, SSH keys, file permissions
+│   ├── security.sh                        # SSH, MariaDB, kernel, SSL/TLS, logrotate, unattended upgrades
+│   └── fail2ban.sh                        # fail2ban jails and custom filters (nginx, TYPO3 login)
 └── config/
     └── nginx/
         └── snippets/
-            ├── bot-filter.nginx        # Bot and AI crawler filtering
-            ├── security.nginx          # Security headers
-            ├── caching.nginx           # Browser caching rules
-            ├── typo3-rewrite.nginx     # TYPO3 URL rewrites
-            ├── method-filter.nginx     # HTTP method filtering
-            ├── monit.nginx             # Example: reverse proxy for a local web UI (e.g. Monit on :2812)
-            └── BasicAuth.nginx         # Basic auth with IP whitelist
+            ├── bot-filter.nginx           # Generated by bin/bot-policy — placeholder only, do not edit
+            ├── exploit-filter.nginx       # SQL injection / path traversal / spam query filtering
+            ├── typo3-security-filter.nginx # TYPO3-specific attack signatures
+            ├── security.nginx             # Security headers
+            ├── caching.nginx              # Browser caching rules
+            ├── typo3-rewrite.nginx        # TYPO3 URL rewrites
+            ├── method-filter.nginx        # HTTP method filtering
+            ├── rate-limiting-zones.nginx  # limit_req zones (http context)
+            ├── rate-limiting-login.nginx  # Rate limiting for TYPO3 login paths
+            ├── backend-ip-restriction.nginx # Opt-in: IP allowlist for /typo3/ (disabled by default)
+            ├── monit.nginx                # Example: reverse proxy for a local web UI (e.g. Monit on :2812)
+            └── BasicAuth.nginx            # Basic auth with IP whitelist
 ```
 
 ## What Gets Installed
@@ -152,7 +178,7 @@ server-install/
 ### Tools
 
 - **Composer** — verified checksum install
-- **Node.js v22** — via nvm, installed for `www-data`
+- **Node.js 24 LTS** — via nvm, installed for `www-data` (22 selectable for legacy frontend builds)
 - **ImageMagick** — image processing with AVIF support (via libheif)
 - **Ghostscript** — PDF rendering backend for ImageMagick
 - **poppler-utils** — `pdftotext` / `pdfinfo` for TYPO3 indexed_search and ke_search PDF indexing
@@ -164,8 +190,8 @@ server-install/
 
 ## Resource Tuning
 
-`bin/tune-server.sh` calculates optimal settings based on available RAM and CPU. Safe to re-run after server rescaling (
-e.g. Hetzner Cloud).
+`bin/tune-server.sh` calculates optimal settings based on available RAM and CPU. Safe to re-run after server rescaling
+(e.g. Hetzner Cloud).
 
 ```bash
 bin/tune-server.sh --dry-run   # Preview without applying
@@ -183,8 +209,9 @@ bin/tune-server.sh             # Apply interactively
 | MariaDB | `thread_cache_size`            | CPU core count                 |
 | MariaDB | `table_open_cache`             | `max_connections × 4`          |
 
-PHP-FPM: modifies `pool.d/www.conf` (timestamped backup created before each run).
-MariaDB: writes a clean drop-in at `/etc/mysql/mariadb.conf.d/99-tuning.conf`.
+PHP-FPM: modifies `pool.d/www.conf` (timestamped backup created before each run). MariaDB: writes a clean drop-in at
+`/etc/mysql/mariadb.conf.d/99-tuning.cnf`. The extension matters — `!includedir` only reads `*.cnf` files. A
+`99-tuning.conf` written by earlier versions was never loaded; it is removed on the next run.
 
 ## TYPO3 Configuration
 
@@ -222,7 +249,7 @@ System settings are configured in `config/system/additional.php`. This file is l
 
 > **Important for integrators:** Settings defined in `additional.php` cannot be changed through the TYPO3 Install Tool
 > or Admin Panel. Any value saved there will be silently overridden on the next request. To change these settings, edit
-`additional.php` directly on the server.
+> `additional.php` directly on the server.
 
 Settings locked in `additional.php`:
 
@@ -331,26 +358,55 @@ Binary media files (mp4, mp3, PDF, images) are served without CSP to avoid brows
 
 ### Bot / AI Crawler Filtering
 
-During installation, you choose between two modes:
+Bot and crawler rules are managed by `bin/bot-policy/bot-policy.sh`, a standalone whiptail TUI — no manual editing of
+`/etc/nginx/snippets/bot-filter.nginx` required (it is a generated file, overwritten on every activation).
 
-**Staging** — blocks all AI crawlers and SEO scrapers. Suitable for training systems, client preview environments, or
-any server that should not be indexed.
+During installation, the built-in catalog (`bin/bot-policy/data/default-bots.json`, ~55 bots/crawlers/search engines
+with vendor info and short background) is seeded into `/etc/bot-policy/` according to the chosen mode:
 
-**Production** *(default)* — blocks abusive scrapers and Bytedance/TikTok (known for high-volume crawling that can cause
-server load). Major AI assistants are allowed through so the site remains discoverable via ChatGPT, Claude, Perplexity,
-and Gemini.
+**Staging** — blocks all AI crawlers and SEO scrapers/aggressive crawlers too. Suitable for training systems, client
+preview environments, or any server that should not be indexed.
 
-| Bot                              | Staging | Production     |
-|----------------------------------|---------|----------------|
-| Bytespider (Bytedance/TikTok)    | blocked | always blocked |
-| AhrefsBot, SemrushBot, DotBot    | blocked | blocked        |
-| GPTBot, OAI-SearchBot (ChatGPT)  | blocked | allowed        |
-| ClaudeBot, anthropic-ai (Claude) | blocked | allowed        |
-| PerplexityBot                    | blocked | allowed        |
-| Google-Extended (Gemini)         | blocked | allowed        |
-| Empty User-Agent                 | blocked | blocked        |
+**Production** *(default)* — blocks abusive scrapers and SEO/scraping tools. Major AI assistants (ChatGPT, Claude,
+Perplexity, Gemini, ...) are allowed through so the site remains discoverable via AI search.
 
-Access can be refined per-site via `robots.txt` without changing the Nginx config.
+Each bot has one of four rules:
+
+| Rule         | Effect                                                                                                  |
+|--------------|---------------------------------------------------------------------------------------------------------|
+| Allow        | No restriction                                                                                          |
+| Block search | Blocked only on the configured site-search URL(s), rest of the site stays crawlable                     |
+| Block full   | Blocked everywhere (`444`)                                                                              |
+| Always allow | Overrides every other rule — used for uptime monitoring (HetrixTools) and E2E test runners (Playwright) |
+
+"Block search" exists for bots that are otherwise fine to allow but have caused excessive load against the site search
+(e.g. a Solr-backed TYPO3 search) — it avoids either fully blocking a bot or leaving an expensive endpoint open to it.
+Configure the search URL path (s) via the tool's "Such-Pfade verwalten" menu.
+
+Changes go to a draft first — nothing reaches the live nginx config until an explicit "Einstellungen aktivieren", which
+backs up the previous state, tests with `nginx -t`, and rolls back automatically on failure. Run
+`bin/bot-policy/bot-policy.sh --report` for a customer-ready plain-text summary of the current draft (add `--active`
+for the live state), or `--activate` to apply non-interactively.
+
+```
+bin/bot-policy/bot-policy.sh                    # Interactive menu
+bin/bot-policy/bot-policy.sh --report            # Report of the draft (not yet active)
+bin/bot-policy/bot-policy.sh --report --active   # Report of the live policy
+bin/bot-policy/bot-policy.sh --activate          # Apply the draft non-interactively
+```
+
+### Backend IP Restriction (opt-in)
+
+`/etc/nginx/snippets/backend-ip-restriction.nginx` restricts `/typo3/` to an IP allowlist (office, VPN). It is generated
+on every install but **disabled by default** — the include line in `typo3.nginx` is commented out and the example IPs
+use RFC 5737 documentation ranges that match nobody.
+
+To enable: edit the allowlist in the snippet, uncomment the include in
+`/etc/nginx/sites-available/typo3.nginx`, and follow the TYPO3 v12/v13 note inside the snippet (the
+`location /typo3/` block in `typo3-rewrite.nginx` must be commented out — `nginx -t` fails loudly if you forget).
+
+This is an additional layer for setups where backend users work from known networks. It does not replace strong backend
+passwords or MFA.
 
 ### Security Headers
 
@@ -371,8 +427,14 @@ Pre-compressed formats (WOFF2, AVIF, WebP, JPEG, PNG) are excluded from compress
 
 - **Versioned assets** (CSS/JS with timestamp): `max-age=31536000, immutable`
 - **`_assets/`** (extension assets): 1 year
-- **Images**: 30 days
+- **Images**: 30 days (with WebP variant delivery — pre-generated `.webp` files from plan2net/webp are served
+  automatically when the browser accepts them)
 - **Fonts**: 1 year
+- **Media / PDF**: 7 days
+
+The `^~ /fileadmin/` security location stops nginx regex matching, so the general caching rules do not apply there — the
+fileadmin block therefore contains its own nested cache locations (images 30 days, fonts 1 year, media/PDF 7 days, SVG
+with CSP + 30 days). Security rules (recycler, executable files, CSP) always take precedence over caching.
 
 ## Security Hardening
 
@@ -393,6 +455,102 @@ UFW rule added automatically.
 **Hetzner note:** Disabling SSH password auth does not affect Hetzner's "Reset Root Password" feature (QEMU Guest
 Agent). After a password reset, use the **Hetzner Cloud Console** (web KVM) for emergency access. Keep
 `qemu-guest-agent` installed.
+
+### Deploy User (opt-in)
+
+By default the installer copies root's SSH key to `www-data`, which allows direct SSH login as the site owner.
+`bin/setup-deploy-user.sh` provides a stricter alternative: a dedicated login user (default: `deploy`) with its own SSH
+key, membership in the `www-data` group, and a sudo rule limited to running commands as `www-data`:
+
+```bash
+bin/setup-deploy-user.sh --dry-run   # Preview without applying
+bin/setup-deploy-user.sh             # Interactive (asks for username and SSH key)
+```
+
+After the deploy login is confirmed working, the script can disable the direct `www-data` SSH login (the key file is
+backed up, so this is reversible). Daily work then looks like:
+
+```bash
+ssh -p 222 deploy@server
+sudo -u www-data -i                      # interactive shell as www-data
+sudo -u www-data composer install        # single commands
+```
+
+The sudo rule is written to `/etc/sudoers.d/deploy` and validated with `visudo -cf` before installation.
+
+> **Always go through `sudo -u www-data` — never run `git pull`, `composer`, or the TYPO3 CLI directly as the
+> deploy user.** Membership in the `www-data` group is not enough on its own: the site directories are `2770`
+> (setgid), which makes new files inherit the `www-data` *group*, but the *write* bit on a newly created file
+> still comes from the umask of whoever created it. A file the deploy user creates directly can end up
+> group-unwritable, causing "Permission denied" for `www-data` (or other deploy users) afterwards. If that
+> happens, run `bin/fix-permissions.sh` to reset the tree back to the installer's baseline.
+
+### www-data Deploy Key (opt-in)
+
+`git pull` against a private repository (the site's own composer.json-managed codebase) needs its own
+credential once the deploy user is separated from `www-data`: `sudo -u www-data` does not forward the deploy
+user's SSH agent, so `www-data` has no way to authenticate outbound otherwise. `bin/setup-www-data-deploy-key.sh`
+generates a dedicated, passphrase-less ed25519 key for `www-data` — outbound only, unrelated to
+`/var/www/.ssh/authorized_keys` (inbound login):
+
+```bash
+bin/setup-www-data-deploy-key.sh --dry-run   # Preview without applying
+bin/setup-www-data-deploy-key.sh             # Generate (idempotent) and print the public key
+```
+
+Register the printed public key as a **read-only** deploy key on the git remote (GitHub: Repo → Settings →
+Deploy keys, leave "Allow write access" unchecked). Then, from a `sudo -u www-data -i` shell, the first
+connection to a new host asks to confirm its host key (normal SSH TOFU behaviour) — answer `yes` once.
+
+> Only needed for git-based deployment against a private remote. If the site is installed purely via public
+> Composer packages, skip this — there's nothing for `www-data` to authenticate against.
+>
+> This key must never leave `/var/www/.ssh/` and is scoped read-only on the remote — it does **not** need
+> `rsync`-style access to another server. For pulling content between servers (e.g. fileadmin from a live
+> instance), see the `--chmod` pattern under [Troubleshooting](#permission-denied-on-git-pull--composer-install)
+> instead of adding more outbound keys.
+
+### fail2ban
+
+Installed and enabled during installation. All nginx jails ban on ports `http,https` only — a web attack never locks an
+IP out of SSH. The installer asks for **static** `ignoreip` entries (company office with fixed IP, or a VPN server
+admins connect through) — never add dynamic home/mobile IPs, as stale entries whitelist strangers once the provider
+reassigns them. Entries can be added later in `/etc/fail2ban/jail.local` + `systemctl reload fail2ban`.
+
+The `typo3-fe-login` jail and the login rate limiting are only configured when the installer question "Will this site
+have a frontend login?" is answered with yes; otherwise a placeholder snippet documents how to enable both later.
+
+| Jail                    | Watches                                        | maxretry | bantime |
+|-------------------------|------------------------------------------------|----------|---------|
+| `sshd`                  | SSH login failures (systemd journal)           | 3        | 24 h    |
+| `nginx-http-auth`       | BasicAuth failures                             | 3        | 1 h     |
+| `nginx-botsearch`       | Requests for known bot/scanner paths           | 2        | 24 h    |
+| `nginx-limit-req`       | nginx `limit_req` violations (error log)       | 5        | 1 h     |
+| `nginx-sqli-lfi`        | SQL injection, LFI, XSS, recon probes          | 1        | 24 h    |
+| `nginx-4xx`             | Repeated 4xx responses (400/404 excluded)      | 20       | 1 h     |
+| `nginx-login-ratelimit` | 429 responses from login rate limiting         | 3        | 6 h     |
+| `typo3-fe-login`        | Failed TYPO3 frontend logins (status 200/403)¹ | 5        | 6 h     |
+
+¹ Only when a frontend login was configured during installation.
+
+The `typo3-fe-login` filter only counts POST requests answered with status 200 or 403 — successful logins redirect with
+302/303 and are never counted, so users who log in several times in a row are not banned. The SQLi/LFI filter matches
+case-insensitively and additionally bans single requests to paths that never exist on a TYPO3 site (`wp-login.php`,
+`xmlrpc.php`, `/.env`, `/.git/`, phpMyAdmin).
+
+Useful commands:
+
+```bash
+fail2ban-client status                        # list jails
+fail2ban-client status typo3-fe-login         # banned IPs of one jail
+fail2ban-client set typo3-fe-login unbanip 203.0.113.10
+```
+
+### Unattended Security Upgrades
+
+`unattended-upgrades` is installed and enabled: security updates from the Ubuntu security pocket are applied
+automatically every day. Automatic reboots are explicitly disabled — kernel updates are installed, but the reboot
+remains a manual decision (`/var/run/reboot-required` signals when one is pending).
 
 ### MariaDB Security
 
@@ -452,8 +610,8 @@ rm /var/www/typo3/install-log-please-remove.md
 ### 5. Delete installation state files
 
 `/root/.typo3-install-state` and `/root/.typo3-install-config` are used by the installer for resume support.
-`/root/.typo3-install-config` contains all generated passwords in plaintext and should be deleted once the
-installation is verified and all credentials have been saved.
+`/root/.typo3-install-config` contains all generated passwords in plaintext and should be deleted once the installation
+is verified and all credentials have been saved.
 
 > **Note:** Keep `/root/.typo3-install-config` as long as you might need to recover passwords — for example if `.env`
 > files are accidentally deleted. Once you are certain the credentials are backed up elsewhere, delete the file.
@@ -470,6 +628,46 @@ Root password is saved to `/root/.my.cnf` — no password prompt needed as root:
 mysql
 mysql -e "SHOW DATABASES;"
 grep password /root/.my.cnf   # Retrieve password explicitly
+```
+
+## Database Backup
+
+> **Scope: operator errors only.** These dumps live on the same machine — they protect against accidental
+> deletions, broken deployments, and failed updates, but **not** against server compromise, ransomware, or data
+> center failure. For that you need backups the server itself cannot delete: either pull-based (a backup host
+> fetches the dumps), or push with append-only credentials plus storage-side snapshots (e.g. restic/borg to a
+> Hetzner Storage Box with snapshots enabled). Hetzner Cloud Backups are also stored outside the server — they
+> cannot be deleted from within it as long as no Hetzner API token is stored on the machine.
+
+`bin/backup-database.sh` dumps every non-system database to `/var/backups/mysql/` (gzip, mode 600):
+
+```bash
+bin/backup-database.sh                   # Run one backup now
+bin/backup-database.sh --dry-run         # Show databases, sizes, excluded tables — no dump
+bin/backup-database.sh --install-cron    # Install cron (every 6 h) and run an initial backup
+bin/backup-database.sh --install-cron=12 # Same, every 12 hours
+```
+
+The installer offers `--install-cron` at the end of a run. The cron job logs to `/var/log/typo3-db-backup.log`
+and runs at minute 17 to avoid top-of-the-hour load.
+
+**What is excluded:** the dump always contains the **schema of all tables**, but no **data** for `sys_log`
+(pure log, often the largest table), `sys_history` (editors' change history — remove it from
+`EXCLUDED_TABLE_NAMES` in the script if your editors rely on record rollback after a restore), `cache_*`
+(rebuilt automatically), and `be_sessions` / `fe_sessions` (transient). After a restore all tables exist — the excluded
+ones are simply empty — and TYPO3 starts right away.
+
+**Disk space check:** before each dump the script estimates the compressed size (50 % of the included data+index bytes —
+conservative; real dumps are usually smaller) and skips the dump with a non-zero exit code if free space would drop
+below 200 MB headroom.
+
+**Retention:** dumps older than 7 days are deleted (`RETENTION_DAYS`, override via environment or edit the script). With
+the 6-hour default this keeps at most 28 dumps per database.
+
+Restore:
+
+```bash
+gunzip < /var/backups/mysql/<database>-<timestamp>.sql.gz | mysql <database>
 ```
 
 ## TYPO3 CLI
@@ -539,6 +737,45 @@ redis-cli ping                    # Expected: PONG (requires -a <password> after
 php -m | grep redis               # PHP Redis extension loaded?
 bin/tune-server.sh --dry-run      # Review current tuning recommendations
 bin/toggle-php-slowlog.sh status  # Check slow log state
+bin/check-image-processing.sh     # GFX processor + WebP conversion health
+bin/fix-permissions.sh --dry-run  # Check for file ownership/permission drift
+```
+
+### Permission Denied on `git pull` / `composer install`
+
+```
+Failed to download guzzlehttp/psr7 from dist: The "..." file could not be written to
+/var/www/typo3/vendor/composer/tmp-....zip: Failed to open stream: Permission denied
+```
+
+Happens when a `www-data` group member (the deploy user, an SSH-key holder on `www-data`) creates or updates files while
+**not** working as `www-data` — see the warning in [Deploy User](#deploy-user-opt-in). Fix:
+
+```bash
+bin/fix-permissions.sh            # Reset ownership/permissions to the installer's baseline
+sudo -u www-data -i               # Then always work as www-data from here on
+```
+
+### Image Processing / Broken WebP Images
+
+A `settings.php` brought along by a site migration can reference a graphics processor (e.g. GraphicsMagick)
+that is not installed on this server. TYPO3 then silently fails every **new** image processing — existing
+`_processed_` files keep working, so the breakage stays invisible until an editor uploads a new image. plan2net/webp
+additionally leaves 0-byte `.webp` files behind, which nginx serves as broken images to WebP-capable browsers.
+
+`bin/check-image-processing.sh` detects this: it verifies the configured processor binary exists, runs a real JPEG→WebP
+test conversion, checks PHP GD WebP support, and counts 0-byte `.webp` leftovers under
+`fileadmin` (exit code 1 if anything fails — suitable for monitoring). **Run it after every site migration.**
+
+**`ondrej/php` PPA: "Repository ... changed its 'Label' value ... Use https://packages.sury.org/php/ instead"**
+
+Ondřej Surý is migrating PHP packages from the Launchpad PPA to `packages.sury.org`, since Launchpad's build
+infrastructure has become unreliable. `apt update` refuses the changed Release metadata until acknowledged:
+
+```bash
+apt update --allow-releaseinfo-change-label   # silences the warning, PPA stays in use
+bin/migrate-php-repo.sh --dry-run             # review the switch to packages.sury.org
+bin/migrate-php-repo.sh                       # switch the server's PHP source permanently
 ```
 
 TYPO3 v13 with a custom backend entry point — check `config/system/settings.yaml`:

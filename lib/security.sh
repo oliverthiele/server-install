@@ -98,6 +98,34 @@ hardenSSH() {
   echo "INFO For port change and full interactive hardening: bin/harden-ssh.sh"
 }
 
+configureUnattendedUpgrades() {
+  echo "INFO Enabling unattended security upgrades"
+
+  apt --assume-yes install unattended-upgrades
+
+  # Enable daily package list updates and the unattended upgrade run
+  cat > /etc/apt/apt.conf.d/20auto-upgrades <<'EOL'
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "1";
+EOL
+
+  # Drop-in on top of the package default (security origins only).
+  # A TYPO3 server must never reboot on its own — kernel updates are applied,
+  # but the reboot stays a manual decision (watch /var/run/reboot-required).
+  cat > /etc/apt/apt.conf.d/52unattended-upgrades-typo3 <<'EOL'
+// TYPO3 server overrides — managed by ServerInstall
+Unattended-Upgrade::Automatic-Reboot "false";
+Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+Unattended-Upgrade::Remove-Unused-Dependencies "true";
+EOL
+
+  systemctl enable --now unattended-upgrades >/dev/null 2>&1 \
+    || warn "Could not enable unattended-upgrades service — check manually"
+
+  echo "INFO Unattended security upgrades enabled (no automatic reboots —"
+  echo "INFO kernel updates still require a manual reboot, see /var/run/reboot-required)"
+}
+
 optimizeKernel() {
   echo "INFO Applying kernel optimizations for production"
 

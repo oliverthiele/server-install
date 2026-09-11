@@ -30,6 +30,7 @@ source "${SCRIPT_DIR}/lib/nginx.sh"
 source "${SCRIPT_DIR}/lib/typo3.sh"
 source "${SCRIPT_DIR}/lib/users.sh"
 source "${SCRIPT_DIR}/lib/security.sh"
+source "${SCRIPT_DIR}/lib/fail2ban.sh"
 
 # Reboot check – Ubuntu writes this file after kernel or libc updates.
 # Placed after source so warn() and color variables are available.
@@ -117,6 +118,7 @@ if ! isStepComplete "system_hardening"; then
   increaseLimits
   optimizeKernel
   hardenSSH
+  configureUnattendedUpgrades
   markStepComplete "system_hardening"
 fi
 
@@ -161,27 +163,33 @@ if ! isStepComplete "nginx_setup"; then
   markStepComplete "nginx_setup"
 fi
 
-# Step 9: SSL/TLS and logging configuration
+# Step 9: Install and configure fail2ban
+if ! isStepComplete "fail2ban_setup"; then
+  installFail2ban
+  markStepComplete "fail2ban_setup"
+fi
+
+# Step 10: SSL/TLS and logging configuration
 if ! isStepComplete "ssl_and_logging"; then
   configureSSLHardening
   setupLogrotate
   markStepComplete "ssl_and_logging"
 fi
 
-# Step 10: Setup users and permissions
+# Step 11: Setup users and permissions
 if ! isStepComplete "users_and_permissions"; then
   configureWwwUser
   setPermissions
   markStepComplete "users_and_permissions"
 fi
 
-# Step 11: Install Node.js for www-data (for frontend builds)
+# Step 12: Install Node.js for www-data (for frontend builds)
 if ! isStepComplete "nodejs_install"; then
   installNodeForWwwData
   markStepComplete "nodejs_install"
 fi
 
-# Step 12: Finish
+# Step 13: Finish
 if ! isStepComplete "finalization"; then
   finish
   markStepComplete "finalization"
@@ -208,6 +216,30 @@ if [[ ! "${ssh_response}" =~ ^([nN])$ ]]; then
 else
   echo "INFO Skipped. Run manually anytime: bin/harden-ssh.sh"
   echo "INFO Dry-run preview:               bin/harden-ssh.sh --dry-run"
+fi
+
+# Optional: dedicated deploy user instead of direct www-data SSH access
+echo ""
+echo "Optional: create a dedicated deploy user (own SSH login, sudo -u www-data)"
+echo "and disable the direct www-data SSH login afterwards."
+read -rp "Set up a deploy user now? [y/N] " deploy_response
+if [[ "${deploy_response}" =~ ^([yY])$ ]]; then
+  bash "${SCRIPT_DIR}/bin/setup-deploy-user.sh"
+else
+  echo "INFO Skipped. Run manually anytime: bin/setup-deploy-user.sh"
+  echo "INFO Dry-run preview:               bin/setup-deploy-user.sh --dry-run"
+fi
+
+# Optional: local database backup cron (safety net against operator errors)
+echo ""
+echo "Local database backups (every 6 hours, 7 days retention)."
+echo "Protects against operator errors only — off-site backups are still required."
+read -rp "Install database backup cron now? [Y/n] " backup_response
+if [[ ! "${backup_response}" =~ ^([nN])$ ]]; then
+  bash "${SCRIPT_DIR}/bin/backup-database.sh" --install-cron
+else
+  echo "INFO Skipped. Run manually anytime: bin/backup-database.sh --install-cron"
+  echo "INFO Dry-run preview:               bin/backup-database.sh --dry-run"
 fi
 
 # Show all remaining TODOs at the very end — after tuning and SSH hardening

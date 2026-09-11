@@ -1,0 +1,12 @@
+# Rate limiting zones for TYPO3 — included in nginx.conf http block.
+# This file is copied to /etc/nginx/snippets/ during installation.
+
+# Login paths: 5 requests/minute per IP (low — brute force protection)
+limit_req_zone $binary_remote_addr zone=typo3_login:10m rate=5r/m;
+
+# General requests: 30 requests/second per IP (high — DDoS mitigation)
+limit_req_zone $binary_remote_addr zone=typo3_general:10m rate=30r/s;
+
+# Return 429 Too Many Requests when rate limit is exceeded.
+# fail2ban nginx-login-ratelimit jail detects these 429 responses.
+limit_req_status 429;

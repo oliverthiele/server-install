@@ -195,6 +195,12 @@ printNextSteps() {
   echo ""
   step=$((step + 1))
 
+  echo "  ${step}. Review/adjust bot and crawler rules (per-bot allow/block, e.g. re-allow a"
+  echo "     previously blocked bot once a related feature goes live):"
+  echo "     bin/bot-policy/bot-policy.sh"
+  echo ""
+  step=$((step + 1))
+
   echo "  ${step}. Delete installation log after saving credentials:"
   echo "     rm ${composerDirectory}install-log-please-remove.md"
   echo ""

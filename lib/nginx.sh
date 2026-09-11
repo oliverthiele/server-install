@@ -2,98 +2,19 @@
 
 # Nginx installation and configuration with Brotli
 
+# Bot/crawler policy is managed by bin/bot-policy (per-bot rules stored as JSON
+# under /etc/bot-policy/, see bin/bot-policy/lib/storage.sh). This function only
+# seeds the catalog on first install — mode selects the initial rule for AI
+# crawlers ("production" leaves them unrestricted, "staging" blocks them too,
+# same behavior as the old hardcoded modes). Re-running is a no-op once the
+# catalog exists, so later manual edits via bin/bot-policy survive re-installs.
 writeBotFilterSnippet() {
   local mode="${1}"
-  local targetFile="/etc/nginx/snippets/bot-filter.nginx"
+  local scriptDirectoryNginx
+  scriptDirectoryNginx="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-  echo "INFO Writing bot-filter snippet (mode: ${mode})"
-
-  if [[ "${mode}" == "staging" ]]; then
-    cat > "${targetFile}" <<'EOL'
-# Bot and AI Crawler Filter – STAGING mode
-# All AI crawlers and SEO scrapers are blocked.
-# This system is not intended to be indexed.
-
-set $block_bot 0;
-
-# Block SEO scrapers and aggressive crawlers (not search engines, purely commercial data harvesting)
-if ($http_user_agent ~* (AhrefsBot|SemrushBot|DotBot|MJ12bot|BLEXBot|DataForSeoBot|SeznamBot|MegaIndex|serpstatbot|SeekportBot|SEOkicks|SleepBot|Exabot|MauiBot|crawler4j|TurnitinBot|libwww-perl|Python-urllib|GrabNet|GetRight|Go!Zilla|SERanking|Indy\.Library|Omgilibot)) {
-    set $block_bot 1;
-}
-
-# Block search engine crawlers without relevant traffic for most DE/EU sites
-if ($http_user_agent ~* (Baiduspider|Baidu|Sogou|360Spider|YisouSpider|Yisou|YoudaoBot|Youdao|Sosospider|HaoSouSpider|PetalBot|Yandex|Amazonbot|AmazonProductDiscovery|Bytespider|ByteDance|TikTokSpider)) {
-    set $block_bot 1;
-}
-
-# Block all AI crawlers
-if ($http_user_agent ~* (GPTBot|ChatGPT-User|OAI-SearchBot|CCBot|anthropic-ai|ClaudeBot|Claude-Web|cohere-ai|PerplexityBot|Perplexity-User|FacebookBot|meta-externalagent|Applebot-Extended|Google-Extended|GoogleOther|YouBot|ImagesiftBot)) {
-    set $block_bot 1;
-}
-
-# Block empty User-Agent (common for scrapers)
-if ($http_user_agent = "") {
-    set $block_bot 1;
-}
-
-# Allowed tools: never block, even if matched above
-# (uptime monitoring and E2E test runners must reach the site)
-if ($http_user_agent ~* (HetrixTools|Playwright)) {
-    set $block_bot 0;
-}
-
-if ($block_bot = 1) {
-    return 444;
-}
-EOL
-
-  else
-    cat > "${targetFile}" <<'EOL'
-# Bot and AI Crawler Filter – PRODUCTION mode
-# Abusive scrapers and Bytedance are blocked.
-# Major AI assistants (ChatGPT, Claude, Perplexity, Gemini) are allowed
-# so the site remains discoverable via AI search tools.
-
-set $block_bot 0;
-
-# Always block: Bytedance/TikTok (history of abusive crawling causing server load)
-if ($http_user_agent ~* (Bytespider|ByteDance|TikTokSpider)) {
-    set $block_bot 1;
-}
-
-# Block SEO scrapers and aggressive crawlers (not search engines, purely commercial data harvesting)
-if ($http_user_agent ~* (AhrefsBot|SemrushBot|DotBot|MJ12bot|BLEXBot|DataForSeoBot|SeznamBot|MegaIndex|serpstatbot|SeekportBot|SEOkicks|SleepBot|Exabot|MauiBot|crawler4j|TurnitinBot|libwww-perl|Python-urllib|GrabNet|GetRight|Go!Zilla|SERanking|Indy\.Library|Omgilibot)) {
-    set $block_bot 1;
-}
-
-# Block search engine crawlers without relevant traffic for most DE/EU sites
-if ($http_user_agent ~* (Baiduspider|Baidu|Sogou|360Spider|YisouSpider|Yisou|YoudaoBot|Youdao|Sosospider|HaoSouSpider|PetalBot|Yandex|Amazonbot|AmazonProductDiscovery)) {
-    set $block_bot 1;
-}
-
-# Block empty User-Agent (common for scrapers)
-if ($http_user_agent = "") {
-    set $block_bot 1;
-}
-
-# Allowed tools: never block, even if matched above
-# (uptime monitoring and E2E test runners must reach the site)
-if ($http_user_agent ~* (HetrixTools|Playwright)) {
-    set $block_bot 0;
-}
-
-if ($block_bot = 1) {
-    return 444;
-}
-
-# Allowed AI crawlers (no explicit block needed, listed here for documentation):
-# GPTBot, OAI-SearchBot (ChatGPT/OpenAI)
-# ClaudeBot, anthropic-ai (Claude/Anthropic)
-# PerplexityBot (Perplexity)
-# Google-Extended (Gemini/Google AI)
-# Note: control access per-site via robots.txt if needed
-EOL
-  fi
+  echo "INFO Seeding bot policy (mode: ${mode})"
+  bash "${scriptDirectoryNginx}/bin/bot-policy/bot-policy.sh" "--seed=${mode}"
 }
 
 getNginxVersion() {
@@ -186,6 +107,118 @@ rewrite ^/typo3/install/$ /typo3/install.php permanent;
 rewrite "^(.*)\.(\d{10})\.(css|js|mjs|png|jpg|jpeg|gif|svg|avif|webp|woff|woff2|ttf|eot|otf|json)$" $1.$3 last;
 EOF
   fi
+}
+
+writeRateLimitingLoginSnippet() {
+  local targetFile="/etc/nginx/snippets/rate-limiting-login.nginx"
+
+  # No frontend login configured: write a placeholder so the include in
+  # typo3.nginx stays valid and the file documents how to enable it later.
+  if [[ "${hasFrontendLogin:-true}" != 'true' ]]; then
+    echo "INFO No frontend login — writing rate-limiting placeholder snippet"
+    cat > "${targetFile}" <<'EOF'
+# TYPO3 login rate limiting — NOT ACTIVE
+# No frontend login was configured during installation.
+#
+# To enable later, add a location for your login page(s) and reload nginx:
+#
+# location ~ ^(/anmeldung/|/en/login/) {
+#     limit_req zone=typo3_login burst=2 nodelay;
+#     try_files $uri $uri/ /index.php$is_args$args;
+# }
+#
+# Also enable the matching fail2ban jail — see [typo3-fe-login] in
+# /etc/fail2ban/jail.local and /etc/fail2ban/filter.d/typo3-fe-login.conf.
+EOF
+    return 0
+  fi
+
+  echo "INFO Writing rate-limiting login snippet"
+
+  [ -z "${typo3LoginPathDE}" ] && die "typo3LoginPathDE is not set — cannot write rate-limiting-login.nginx"
+  [ -z "${typo3LoginPathEN}" ] && die "typo3LoginPathEN is not set — cannot write rate-limiting-login.nginx"
+  [ -z "${phpVersion}" ]       && die "phpVersion is not set — cannot write rate-limiting-login.nginx"
+
+  cat > "${targetFile}" <<EOF
+# TYPO3 login rate limiting — generated during installation
+# Paths: ${typo3LoginPathDE} (DE) and ${typo3LoginPathEN} (EN)
+# Overwritten on each install run — do not edit manually.
+
+# Applies rate limiting to TYPO3 frontend login paths.
+# Exceeding the zone rate (see rate-limiting-zones.nginx) returns 429.
+location ~ ^(${typo3LoginPathDE}|${typo3LoginPathEN}) {
+    limit_req zone=typo3_login burst=2 nodelay;
+    try_files \$uri \$uri/ /index.php\$is_args\$args;
+}
+EOF
+}
+
+writeBackendIpRestrictionSnippet() {
+  local targetFile="/etc/nginx/snippets/backend-ip-restriction.nginx"
+
+  echo "INFO Writing backend IP restriction snippet (disabled by default)"
+
+  [ -z "${phpVersion}" ] && die "phpVersion is not set — cannot write backend-ip-restriction.nginx"
+
+  cat > "${targetFile}" <<EOF
+# TYPO3 Backend IP Restriction — OPTIONAL, disabled by default
+#
+# Restricts /typo3/ (backend + install tool routes) to an IP allowlist.
+# Useful when the backend is only used from known locations (office, VPN).
+# This is an additional layer — it does not replace strong backend passwords
+# and MFA, and it does not protect the frontend.
+#
+# HOW TO ENABLE:
+#   1. Replace the example IPs below with your own (office, VPN, home).
+#      The examples use RFC 5737/3849 documentation ranges — they match nobody.
+#   2. Uncomment the include line in /etc/nginx/sites-available/typo3.nginx.
+#   3. TYPO3 v12/v13 only: comment out the "location /typo3/" and
+#      "location ~ ^/typo3/(.*/)?Resources/Public/" blocks in
+#      /etc/nginx/snippets/typo3-rewrite.nginx — this snippet replaces them.
+#      If you forget this, "nginx -t" fails with a duplicate location error
+#      (intentional: better a loud error than a silently bypassed allowlist).
+#   4. nginx -t && systemctl reload nginx
+#
+# Backend assets under /typo3/ are also IP-restricted — that is intended.
+
+location = /typo3 {
+    return 301 /typo3/;
+}
+
+location ^~ /typo3/ {
+    # Replace with your allowed IPs / ranges:
+    allow 203.0.113.10;        # example: office IP
+    allow 198.51.100.0/24;     # example: VPN range
+    # allow 2001:db8::/32;     # example: IPv6 range
+    deny all;
+
+    try_files \$uri \$uri/ /index.php\$is_args\$args;
+
+    location ~ \.php\$ {
+        fastcgi_split_path_info ^(.+\.php)(/.+)\$;
+        try_files \$fastcgi_script_name =404;
+
+        set \$path_info \$fastcgi_path_info;
+        fastcgi_param PATH_INFO \$path_info;
+        fastcgi_index index.php;
+        include fastcgi.conf;
+
+        fastcgi_buffer_size 32k;
+        fastcgi_buffers 8 16k;
+
+        fastcgi_connect_timeout 240s;
+        fastcgi_read_timeout    240s;
+        fastcgi_send_timeout    240s;
+
+        # TYPO3 Context — must match the value in the main PHP location block
+        fastcgi_param TYPO3_CONTEXT Development;
+        #fastcgi_param TYPO3_CONTEXT Production/Staging;
+        #fastcgi_param TYPO3_CONTEXT Production;
+
+        fastcgi_pass unix:/var/run/php/php${phpVersion}-fpm.sock;
+    }
+}
+EOF
 }
 
 compileNginxWithBrotli() {
@@ -328,6 +361,20 @@ EOL
   # Write bot-filter snippet based on selected mode
   writeBotFilterSnippet "${botFilterMode:-production}"
 
+  # Write login rate-limiting snippet with configured login paths
+  writeRateLimitingLoginSnippet
+
+  # Write backend IP restriction snippet (opt-in — include stays commented out)
+  writeBackendIpRestrictionSnippet
+
+  # Add rate-limiting zones include to nginx.conf http block (before sites-enabled)
+  if ! grep -q "rate-limiting-zones.nginx" /etc/nginx/nginx.conf; then
+    sed -i \
+      's|^\(\s*\)include /etc/nginx/sites-enabled/\*;|\1include /etc/nginx/snippets/rate-limiting-zones.nginx;\n\1include /etc/nginx/sites-enabled/*;|' \
+      /etc/nginx/nginx.conf
+    echo "INFO Added rate-limiting-zones.nginx to nginx.conf"
+  fi
+
   # Remove default site
   if [ -f "/etc/nginx/sites-available/default" ]; then
     rm /etc/nginx/sites-available/default
@@ -411,20 +458,26 @@ ${catchAllConfig}server {
     # Monit Web Interface (uncomment if Monit is installed)
     # include /etc/nginx/snippets/monit.nginx;
 
+    # TYPO3 backend IP allowlist (opt-in — edit the snippet first, see instructions inside)
+    # include /etc/nginx/snippets/backend-ip-restriction.nginx;
+
+    # Login rate limiting (paths and zones defined during installation)
+    include /etc/nginx/snippets/rate-limiting-login.nginx;
+
     # Main location
     location / {
         try_files \$uri \$uri/ /index.php?\$args;
     }
 
-    # WebP Extension support
-    location ~* ^.+\.(png|gif|jpe?g)$ {
-        add_header Vary "Accept";
-        add_header Cache-Control "public, no-transform";
-        try_files \$uri\$webp_suffix \$uri =404;
-    }
+    # NOTE: WebP variant delivery (\$webp_suffix) is handled inside caching.nginx —
+    # regex locations are matched in include order, so it must live in the same
+    # location that sets the image cache headers.
 
     # Fileadmin: uploaded files are served statically, never executed as PHP.
     # ^~ stops regex matching, so the PHP-FPM location does not apply here.
+    # This also stops the caching.nginx regex locations — cache headers must
+    # therefore be set in nested locations below (order matters: the security
+    # blocks come first so deny rules and CSP always win over caching).
     # CSP is only added for file types that can execute active content in the browser.
     # Binary media files (mp4, mp3, pdf, images, etc.) are served without CSP headers
     # to avoid browser compatibility issues (e.g. video playback failing silently).
@@ -443,10 +496,43 @@ ${catchAllConfig}server {
             deny all;
         }
 
-        # Strict CSP only for file types that can run active content in the browser
+        # Strict CSP only for file types that can run active content in the browser.
+        # Cached 30 days like other static assets (SVG logos/icons live here).
         location ~* \.(html?|xhtml|xml|svg|svgz|js|mjs)\$ {
             add_header Content-Security-Policy "default-src 'none'; base-uri 'none'; form-action 'none'; sandbox" always;
             add_header X-Content-Type-Options "nosniff" always;
+            expires 30d;
+            add_header Cache-Control "public";
+            try_files \$uri =404;
+        }
+
+        # Bitmap images: cache headers + WebP variant delivery
+        # (plan2net/webp writes .webp files next to originals in _processed_)
+        location ~* \.(png|gif|jpe?g)\$ {
+            expires 30d;
+            add_header Cache-Control "public, no-transform";
+            add_header Vary "Accept, Accept-Encoding";
+            try_files \$uri\$webp_suffix \$uri =404;
+        }
+
+        # Other image formats
+        location ~* \.(webp|avif|ico)\$ {
+            expires 30d;
+            add_header Cache-Control "public, no-transform";
+            try_files \$uri =404;
+        }
+
+        # Fonts
+        location ~* \.(woff2?|ttf|otf|eot)\$ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+            try_files \$uri =404;
+        }
+
+        # Media files and documents
+        location ~* \.(mp4|webm|ogg|ogv|mov|mp3|pdf)\$ {
+            expires 7d;
+            add_header Cache-Control "public";
             try_files \$uri =404;
         }
     }
