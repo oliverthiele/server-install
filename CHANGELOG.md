@@ -97,6 +97,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `/etc/mysql/mariadb.conf.d/99-tuning.conf`, but `!includedir` only reads files ending in `.cnf`, so
   MariaDB kept its defaults. The drop-in is now `99-tuning.cnf`; an existing `99-tuning.conf` is
   reported in the summary and removed when the tuning is applied
+- `bin/add-php-version.sh` did not add the packages.sury.org repository on Ubuntu 26.04, so installing
+  any version other than the distribution's PHP 8.5 (e.g. 8.4) failed at `apt install`
 
 ---
 

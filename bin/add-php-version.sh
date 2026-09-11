@@ -89,11 +89,18 @@ fi
 UBUNTU_VERSION=$(lsb_release -rs 2>/dev/null || echo "unknown")
 
 # ── Check if the packages.sury.org PHP repository is needed ──────────────────
-# Required for PHP 8.4+ on Ubuntu 24.04, and for any version on Ubuntu 22.04/20.04
-# that is not in the default repositories.
+# Required for every version other than 8.5 on Ubuntu 26.04, for PHP 8.4+ on
+# Ubuntu 24.04, and for any version on Ubuntu 22.04/20.04 that is not in the
+# default repositories.
 
 REQUIRES_PHP_REPO=false
 case "${UBUNTU_VERSION}" in
+  26.04)
+    # Ubuntu 26.04 ships PHP 8.5 only
+    if [[ "${TARGET_VERSION}" != "8.5" ]]; then
+      REQUIRES_PHP_REPO=true
+    fi
+    ;;
   24.04)
     if [[ "${TARGET_VERSION}" == "8.4" ]] || [[ "$(echo "${TARGET_VERSION} 8.4" | awk '{print ($1 > $2)}')" == "1" ]]; then
       REQUIRES_PHP_REPO=true
