@@ -4,8 +4,10 @@
 #
 # Reads the installed modules of the currently active PHP-FPM version and installs
 # the same modules for the new version. Applies settings from config/php-settings.sh.
-# Does NOT switch the active PHP version in Nginx or update-alternatives — that
-# remains a deliberate manual step.
+# Does NOT switch the active PHP version in Nginx — that remains a deliberate
+# manual step. Asks whether the CLI default (update-alternatives) should follow
+# the new version; declining, or running without a terminal, keeps the previous
+# CLI version pinned.
 #
 # Usage:
 #   bin/add-php-version.sh <version>   e.g.: bin/add-php-version.sh 8.3
@@ -176,15 +178,51 @@ if $DRY_RUN; then
   exit 0
 fi
 
+# Remember the CLI version before apt runs: in auto mode, update-alternatives
+# switches /usr/bin/php to the highest-priority (newest) version on install.
+PREVIOUS_CLI_VERSION=""
+if command -v php &>/dev/null; then
+  PREVIOUS_CLI_VERSION=$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;' 2>/dev/null || true)
+fi
+
 # ── Install target PHP version and modules ────────────────────────────────────
 
 echo "INFO Installing PHP ${TARGET_VERSION} and modules..."
 apt --assume-yes install "${TARGET_PACKAGES[@]}" \
   || die "Package installation failed — check apt output above"
 
-# Pin CLI version if the sury.org repo is used (prevents newer version from becoming default)
-if $REQUIRES_PHP_REPO && [ -f "/usr/bin/php${TARGET_VERSION}" ]; then
-  update-alternatives --set php "/usr/bin/php${TARGET_VERSION}" 2>/dev/null || true
+# ── CLI default ───────────────────────────────────────────────────────────────
+# With one application per server, CLI and PHP-FPM should usually run the same
+# version, so switching is the default answer. On servers hosting several
+# applications, the previous CLI version can be kept.
+
+CLI_SWITCHED=false
+SWITCH_CLI=false
+if [ -f "/usr/bin/php${TARGET_VERSION}" ]; then
+  if [ -t 0 ]; then
+    echo ""
+    read -rp "Set PHP ${TARGET_VERSION} as the CLI default (previously: ${PREVIOUS_CLI_VERSION:-none})? [Y/n] " cliResponse
+    if [[ ! "${cliResponse}" =~ ^[nN]$ ]]; then
+      SWITCH_CLI=true
+    fi
+  else
+    echo "INFO No terminal — keeping the previous CLI version"
+  fi
+fi
+
+if $SWITCH_CLI; then
+  if update-alternatives --set php "/usr/bin/php${TARGET_VERSION}"; then
+    CLI_SWITCHED=true
+  else
+    warn "update-alternatives failed — CLI default unchanged"
+  fi
+elif [ -n "${PREVIOUS_CLI_VERSION}" ] && [ -f "/usr/bin/php${PREVIOUS_CLI_VERSION}" ]; then
+  # Pin explicitly: auto mode may already point to the newly installed version
+  if update-alternatives --set php "/usr/bin/php${PREVIOUS_CLI_VERSION}"; then
+    echo "INFO CLI stays on PHP ${PREVIOUS_CLI_VERSION}"
+  else
+    warn "update-alternatives failed — check the CLI default with: php -v"
+  fi
 fi
 
 # ── Apply central PHP settings ────────────────────────────────────────────────
@@ -207,5 +245,9 @@ echo "    Change: fastcgi_pass unix:/var/run/php/php${SOURCE_VERSION}-fpm.sock;"
 echo "    To:     fastcgi_pass unix:/var/run/php/php${TARGET_VERSION}-fpm.sock;"
 echo "    Then:   nginx -t && systemctl reload nginx"
 echo ""
-echo "  To set PHP ${TARGET_VERSION} as the CLI default:"
-echo "    update-alternatives --set php /usr/bin/php${TARGET_VERSION}"
+if $CLI_SWITCHED; then
+  echo "  CLI default    : PHP ${TARGET_VERSION}"
+else
+  echo "  To set PHP ${TARGET_VERSION} as the CLI default later:"
+  echo "    update-alternatives --set php /usr/bin/php${TARGET_VERSION}"
+fi

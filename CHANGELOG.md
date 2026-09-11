@@ -61,6 +61,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fail2ban `ignoreip` prompt now asks explicitly for static addresses only (company office with fixed
   IP, VPN server) and warns against dynamic home/mobile IPs — stale entries would whitelist strangers
   once the provider reassigns them
+- `bin/add-php-version.sh` asks whether the CLI default (`update-alternatives`) should switch to the
+  new version (default: yes). Declining, or running without a terminal, pins the previous CLI version.
+  Previously the CLI was switched silently whenever packages.sury.org was used, contrary to the
+  script's own description
 
 ### Fixed
 
