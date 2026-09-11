@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `bin/tune-server.sh` wrote `innodb_buffer_pool_instances`, which MariaDB ignores since 10.5 and
   removed in 10.6 — every start logged a warning. The option is now only written for MariaDB < 10.5
+- `secureMariaDB()` replaced the `unix_socket` authentication of `root@localhost` with a password,
+  so Debian's `debian-start` (system table upgrade after package updates, crashed table check) failed
+  with "Access denied" at every MariaDB start. Root now authenticates via `unix_socket` or password;
+  servers secured by earlier versions are repaired when `secureMariaDB()` runs again
 
 ## [1.4.0] — 2026-09-11
 

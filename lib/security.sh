@@ -12,6 +12,11 @@ secureMariaDB() {
       # Load existing password from config
       mysqlRootPassword=$(grep "^password=" /root/.my.cnf | cut -d'=' -f2- | tr -d '"')
       export mysqlRootPassword
+      # Servers secured by earlier versions lost unix_socket authentication — restore it
+      if ! mysql -N -e "SHOW CREATE USER 'root'@'localhost';" 2>/dev/null | grep -q unix_socket; then
+        mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED VIA unix_socket OR mysql_native_password USING PASSWORD('${mysqlRootPassword}');" 2>/dev/null \
+          && echo "INFO Restored unix_socket authentication for root@localhost (Debian maintenance scripts)"
+      fi
       return 0
     else
       warn "Found .my.cnf but authentication failed, re-securing..."
@@ -23,7 +28,12 @@ secureMariaDB() {
   mysqlRootPassword=$(generatePassword)
 
   # Secure MariaDB installation (automated mysql_secure_installation)
-  # Modern method for MariaDB 10.4+ (use ALTER USER instead of UPDATE)
+  # Keep unix_socket next to the password: Debian's maintenance scripts (debian-start:
+  # system table upgrade after package updates, crashed table check) connect as root
+  # via the socket without a password (/etc/mysql/debian.cnf). IDENTIFIED BY alone
+  # replaces unix_socket, and those scripts then fail with "Access denied".
+  # MariaDB 10.4+; older versions fall back to password authentication only.
+  mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED VIA unix_socket OR mysql_native_password USING PASSWORD('${mysqlRootPassword}');" 2>/dev/null || \
   mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '${mysqlRootPassword}';" 2>/dev/null || \
   mysql -e "SET PASSWORD FOR 'root'@'localhost' = PASSWORD('${mysqlRootPassword}');"
 
