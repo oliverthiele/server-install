@@ -208,7 +208,8 @@ bin/tune-server.sh             # Apply interactively
 | MariaDB | `table_open_cache`             | `max_connections × 4`          |
 
 PHP-FPM: modifies `pool.d/www.conf` (timestamped backup created before each run). MariaDB: writes a clean drop-in at
-`/etc/mysql/mariadb.conf.d/99-tuning.conf`.
+`/etc/mysql/mariadb.conf.d/99-tuning.cnf`. The extension matters — `!includedir` only reads `*.cnf` files. A
+`99-tuning.conf` written by earlier versions was never loaded; it is removed on the next run.
 
 ## TYPO3 Configuration
 

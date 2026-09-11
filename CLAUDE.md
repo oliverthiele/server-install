@@ -107,7 +107,9 @@ from the `0660` sweep (kept at `0600` — plaintext credentials) and does not to
 `bin/tune-server.sh` reads RAM and CPU cores, calculates optimal values, and writes:
 
 - PHP-FPM: modifies `/etc/php/${phpVersion}/fpm/pool.d/www.conf` (backup created before each run)
-- MariaDB: clean drop-in at `/etc/mysql/mariadb.conf.d/99-tuning.conf` (safe to overwrite)
+- MariaDB: clean drop-in at `/etc/mysql/mariadb.conf.d/99-tuning.cnf` (safe to overwrite). The file must
+  end in `.cnf` — `!includedir` ignores every other extension. A `99-tuning.conf` left by earlier versions
+  was never loaded and is removed when the tuning is applied
 
 The installer asks at the end whether to run tuning immediately. Can also be run standalone at any time,
 e.g. after rescaling a Hetzner Cloud server.

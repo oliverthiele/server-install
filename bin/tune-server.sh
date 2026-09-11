@@ -26,7 +26,10 @@ PHP_MAX_WORKERS=60    # Hard cap: beyond this, TYPO3 gains nothing and flock/ses
 # ── Constants ─────────────────────────────────────────────────────────────────
 
 STATE_CONFIG="/root/.typo3-install-config"
-MARIADB_TUNING_CONF="/etc/mysql/mariadb.conf.d/99-tuning.conf"
+MARIADB_TUNING_CONF="/etc/mysql/mariadb.conf.d/99-tuning.cnf"
+# Earlier versions wrote 99-tuning.conf, which MariaDB never loaded: !includedir only
+# reads files ending in .cnf. The old file is removed when the tuning is applied.
+MARIADB_LEGACY_TUNING_CONF="/etc/mysql/mariadb.conf.d/99-tuning.conf"
 
 # ── Parse arguments ───────────────────────────────────────────────────────────
 
@@ -256,6 +259,9 @@ for i in "${!PHP_POOL_CONFS[@]}"; do
 done
 
 echo "  MariaDB  (${MARIADB_TUNING_CONF})"
+if [ -f "${MARIADB_LEGACY_TUNING_CONF}" ]; then
+  echo "  Note: ${MARIADB_LEGACY_TUNING_CONF} is never loaded (!includedir reads *.cnf only) — removed on apply"
+fi
 printf "  %-26s  %6s  →  %s\n" "innodb_buffer_pool_size"      "${CURRENT_BUFFER_POOL}"  "${INNODB_BUFFER_POOL_MB}M"
 printf "  %-26s  %6s  →  %s\n" "innodb_buffer_pool_instances" "-"                       "${INNODB_BUFFER_POOL_INSTANCES}"
 printf "  %-26s  %6s  →  %s\n" "max_connections"              "-"                       "${MAX_CONNECTIONS}"
@@ -338,6 +344,11 @@ table_open_cache  = ${TABLE_OPEN_CACHE}
 EOL
 
 echo "INFO MariaDB tuning config written to ${MARIADB_TUNING_CONF}"
+
+if [ -f "${MARIADB_LEGACY_TUNING_CONF}" ]; then
+  rm -f "${MARIADB_LEGACY_TUNING_CONF}"
+  echo "INFO Removed ${MARIADB_LEGACY_TUNING_CONF} (never loaded by MariaDB)"
+fi
 
 # ── Restart services ──────────────────────────────────────────────────────────
 
