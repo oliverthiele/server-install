@@ -2,6 +2,24 @@
 
 Bash-based installer for TYPO3 on Ubuntu servers. Supports TYPO3 v12 LTS and v13 LTS on Ubuntu 20.04, 22.04, and 24.04.
 
+## Guidelines — mandatory read protocol
+
+Shared, project-independent guidelines are cloned next to this project in
+`../developer-guidelines/`; `../developer-guidelines/AGENTS.md` gives the read order.
+
+This project holds no PHP and no TYPO3 extension code, so most rule files do not apply.
+Two do, and are mandatory:
+
+- `../developer-guidelines/guidelines/git.md` — branch model, commit format, release workflow
+- `../developer-guidelines/guidelines/documentation.md` — `README.md` and `CHANGELOG.md` structure
+
+Shell code follows the conventions already present in `install.sh` and `lib/`. For TYPO3
+version facts the installer depends on — supported versions, PHP requirements — grep
+`../developer-guidelines/guidelines/typo3/changelog-index/` rather than answering from
+memory; never read those files whole.
+
+Never edit files in `../developer-guidelines/` without explicit confirmation.
+
 ## Structure
 
 ```
