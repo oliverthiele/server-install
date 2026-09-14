@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   so Debian's `debian-start` (system table upgrade after package updates, crashed table check) failed
   with "Access denied" at every MariaDB start. Root now authenticates via `unix_socket` or password;
   servers secured by earlier versions are repaired when `secureMariaDB()` runs again
+- `installSoftware()` tried to install `php8.5-opcache`, which does not exist — OPcache is compiled into
+  PHP since 8.5. apt aborted with "Unable to locate package"; the package is now only requested for
+  PHP < 8.5. `bin/add-php-version.sh` lists it as built in instead of "not available"
 
 ## [1.4.0] — 2026-09-11
 

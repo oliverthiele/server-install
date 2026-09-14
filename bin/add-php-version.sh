@@ -141,8 +141,16 @@ fi
 TARGET_PACKAGES=()
 SKIPPED_PACKAGES=()
 
+BUILTIN_PACKAGES=()
+
 for package in "${SOURCE_PACKAGES[@]}"; do
   target_package="${package/php${SOURCE_VERSION}-/php${TARGET_VERSION}-}"
+  # OPcache is compiled into PHP itself since 8.5 — no php8.5-opcache package exists
+  if [[ "${target_package}" == "php${TARGET_VERSION}-opcache" ]] \
+    && [[ "$(echo "${TARGET_VERSION}" | awk '{print ($1 >= 8.5)}')" == "1" ]]; then
+    BUILTIN_PACKAGES+=("${target_package}")
+    continue
+  fi
   # Check if the target package exists in apt
   if apt-cache show "${target_package}" &>/dev/null 2>&1; then
     TARGET_PACKAGES+=("${target_package}")
@@ -167,6 +175,14 @@ if [ "${#SKIPPED_PACKAGES[@]}" -gt 0 ]; then
   echo ""
   echo -e "  ${COLOR_YELLOW}Packages not available for PHP ${TARGET_VERSION} (skipped):${COLOR_NC}"
   for package in "${SKIPPED_PACKAGES[@]}"; do
+    echo "    ${package}"
+  done
+fi
+
+if [ "${#BUILTIN_PACKAGES[@]}" -gt 0 ]; then
+  echo ""
+  echo "  Built into PHP ${TARGET_VERSION}, no separate package needed:"
+  for package in "${BUILTIN_PACKAGES[@]}"; do
     echo "    ${package}"
   done
 fi
