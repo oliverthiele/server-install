@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] — 2026-09-14
+
+### Fixed
+
+- `bin/tune-server.sh` wrote `innodb_buffer_pool_instances`, which MariaDB ignores since 10.5 and
+  removed in 10.6 — every start logged a warning. The option is now only written for MariaDB < 10.5
+- `secureMariaDB()` replaced the `unix_socket` authentication of `root@localhost` with a password,
+  so Debian's `debian-start` (system table upgrade after package updates, crashed table check) failed
+  with "Access denied" at every MariaDB start. Root now authenticates via `unix_socket` or password;
+  servers secured by earlier versions are repaired when `secureMariaDB()` runs again
+- `installSoftware()` tried to install `php8.5-opcache`, which does not exist — OPcache is compiled into
+  PHP since 8.5. apt aborted with "Unable to locate package"; the package is now only requested for
+  PHP < 8.5. `bin/add-php-version.sh` lists it as built in instead of "not available"
+
 ## [1.4.0] — 2026-09-11
 
 ### Added
@@ -302,6 +316,7 @@ in a single script run.
 - Colorized "INSTALLATION COMPLETE" summary with all credentials and numbered next steps
 - ShellCheck CI workflow (GitHub Actions)
 
+[1.4.1]: https://github.com/oliverthiele/server-install/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/oliverthiele/server-install/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/oliverthiele/server-install/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/oliverthiele/server-install/compare/v1.1.1...v1.2.0

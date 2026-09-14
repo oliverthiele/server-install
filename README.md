@@ -204,7 +204,7 @@ bin/tune-server.sh             # Apply interactively
 | PHP-FPM | `pm.start_servers`             | `max_children ÷ 4`             |
 | PHP-FPM | `pm.min/max_spare_servers`     | derived from `max_children`    |
 | MariaDB | `innodb_buffer_pool_size`      | `RAM × 35%`                    |
-| MariaDB | `innodb_buffer_pool_instances` | `min(pool_GB, 8)`              |
+| MariaDB | `innodb_buffer_pool_instances` | `min(pool_GB, 8)`, MariaDB < 10.5 only (removed in 10.6) |
 | MariaDB | `max_connections`              | `RAM ÷ 4 MB`, max 500          |
 | MariaDB | `thread_cache_size`            | CPU core count                 |
 | MariaDB | `table_open_cache`             | `max_connections × 4`          |

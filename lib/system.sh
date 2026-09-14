@@ -73,9 +73,13 @@ installSoftware() {
   # exiftool:      read IPTC / XMP / GPS metadata from uploaded images and documents
   apt --assume-yes install poppler-utils catdoc libimage-exiftool-perl
 
-  # php-opcache is a separate package on Ubuntu 22.04/24.04 but bundled in php-common on 26.04
-  apt --assume-yes install "php${phpVersion}-opcache" \
-    || warn "php${phpVersion}-opcache not found — opcache is likely bundled in php${phpVersion}-common on this system"
+  # OPcache is compiled into PHP itself since 8.5 — no php8.5-opcache package exists
+  if [[ "$(echo "${phpVersion}" | awk '{print ($1 < 8.5)}')" == "1" ]]; then
+    apt --assume-yes install "php${phpVersion}-opcache" \
+      || warn "php${phpVersion}-opcache could not be installed — check the apt output above"
+  else
+    echo "INFO OPcache is built into PHP ${phpVersion}, no separate package needed"
+  fi
 
   if [[ "${requiresPhpPpa}" == 'true' ]]; then
     echo "INFO Setting PHP ${phpVersion} as default CLI via update-alternatives"

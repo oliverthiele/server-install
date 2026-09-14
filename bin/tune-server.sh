@@ -190,6 +190,22 @@ INNODB_BUFFER_POOL_INSTANCES=$(( INNODB_BUFFER_POOL_MB / 1024 ))
 [ "${INNODB_BUFFER_POOL_INSTANCES}" -lt 1 ] && INNODB_BUFFER_POOL_INSTANCES=1
 [ "${INNODB_BUFFER_POOL_INSTANCES}" -gt 8 ] && INNODB_BUFFER_POOL_INSTANCES=8
 
+# innodb_buffer_pool_instances is ignored from MariaDB 10.5 and removed in 10.6
+# (startup warning). Only older servers get it — Ubuntu 20.04 ships 10.3.
+MARIADB_VERSION=$( { mariadbd --version 2>/dev/null || mysqld --version 2>/dev/null; } \
+  | grep -oP 'Ver \K[0-9]+\.[0-9]+' | head -1 )
+WRITE_BUFFER_POOL_INSTANCES=false
+if [ -n "${MARIADB_VERSION}" ] \
+  && [ "$(printf '%s\n' "${MARIADB_VERSION}" "10.5" | sort -V | head -1)" != "10.5" ]; then
+  WRITE_BUFFER_POOL_INSTANCES=true
+fi
+
+if $WRITE_BUFFER_POOL_INSTANCES; then
+  BUFFER_POOL_INSTANCES_LINE="innodb_buffer_pool_instances = ${INNODB_BUFFER_POOL_INSTANCES}"
+else
+  BUFFER_POOL_INSTANCES_LINE="# innodb_buffer_pool_instances: not set (ignored since MariaDB 10.5, removed in 10.6)"
+fi
+
 MAX_CONNECTIONS=$(( TOTAL_RAM_MB / 4 ))
 [ "${MAX_CONNECTIONS}" -gt 500 ] && MAX_CONNECTIONS=500
 [ "${MAX_CONNECTIONS}" -lt 50 ]  && MAX_CONNECTIONS=50
@@ -263,7 +279,9 @@ if [ -f "${MARIADB_LEGACY_TUNING_CONF}" ]; then
   echo "  Note: ${MARIADB_LEGACY_TUNING_CONF} is never loaded (!includedir reads *.cnf only) — removed on apply"
 fi
 printf "  %-26s  %6s  →  %s\n" "innodb_buffer_pool_size"      "${CURRENT_BUFFER_POOL}"  "${INNODB_BUFFER_POOL_MB}M"
-printf "  %-26s  %6s  →  %s\n" "innodb_buffer_pool_instances" "-"                       "${INNODB_BUFFER_POOL_INSTANCES}"
+if $WRITE_BUFFER_POOL_INSTANCES; then
+  printf "  %-26s  %6s  →  %s\n" "innodb_buffer_pool_instances" "-"                     "${INNODB_BUFFER_POOL_INSTANCES}"
+fi
 printf "  %-26s  %6s  →  %s\n" "max_connections"              "-"                       "${MAX_CONNECTIONS}"
 printf "  %-26s  %6s  →  %s\n" "thread_cache_size"            "-"                       "${THREAD_CACHE_SIZE}"
 printf "  %-26s  %6s  →  %s\n" "table_open_cache"             "-"                       "${TABLE_OPEN_CACHE}"
@@ -333,7 +351,7 @@ cat > "${MARIADB_TUNING_CONF}" <<EOL
 
 # InnoDB buffer pool: ${MARIADB_RAM_RATIO}% of total RAM
 innodb_buffer_pool_size      = ${INNODB_BUFFER_POOL_MB}M
-innodb_buffer_pool_instances = ${INNODB_BUFFER_POOL_INSTANCES}
+${BUFFER_POOL_INSTANCES_LINE}
 
 # Connections
 max_connections   = ${MAX_CONNECTIONS}
