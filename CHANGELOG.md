@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Replace the opt-in backend IP restriction with `restricted-areas-maps.nginx` (allowlist and path maps, http
+  context, included in `nginx.conf`) and `restricted-areas.nginx` (server-level `return 404`). The check runs before
+  any location is chosen, so it needs no PHP block of its own and no second `TYPO3_CONTEXT` to keep in sync, and the
+  `location /typo3/` block in `typo3-rewrite.nginx` no longer has to be commented out. The backend path is one map
+  entry, for projects that change `BE.entryPoint`. Migration: servers installed with an earlier version keep
+  `backend-ip-restriction.nginx`; if it was enabled, move its addresses into `restricted-areas-maps.nginx`, include
+  `restricted-areas.nginx` instead, and restore the `location /typo3/` block in `typo3-rewrite.nginx`
+
+### Fixed
+
+- The backend IP restriction left the install tool open through the frontend entry point (`/?__typo3_install`);
+  it is now restricted together with the backend
+
+### Removed
+
+- `backend-ip-restriction.nginx` and `writeBackendIpRestrictionSnippet()`
+
 ## [1.4.1] — 2026-09-14
 
 ### Fixed
