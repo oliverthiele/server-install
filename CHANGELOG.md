@@ -26,6 +26,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `backend-ip-restriction.nginx` and `writeBackendIpRestrictionSnippet()`
 
+## [1.4.2] — 2026-10-14
+
+### Changed
+
+- Move the probe patterns for WordPress, phpMyAdmin and dotfile paths (`wp-login.php`, `/.git/`, `/.env`, ...) out of
+  the `nginx-sqli-lfi` jail into a new `nginx-recon-probe` jail that bans after 5 hits in 10 minutes for 1 hour
+  instead of on the first hit for 24 hours. Security scanners and antivirus vendors request `/.git/HEAD` on every
+  check; the first-hit ban made the site time out for them, so a stale malware or phishing listing could not be
+  re-checked. `nginx-sqli-lfi` keeps the first-hit ban for SQL injection, LFI and XSS payloads. Existing servers pick
+  up the change when `installFail2ban()` runs again
+
+### Fixed
+
+- `caching.nginx` answered `/robots.txt` with 404 when no physical file existed, so a TYPO3 static route for
+  `robots.txt` in the site configuration never took effect. The location now falls back to `index.php`
+- The cache-busting rewrite in `typo3-rewrite.nginx` did not cover `.xsl`, so the stylesheet of the TYPO3 XML
+  sitemap (`Sitemap.<timestamp>.xsl`) returned 404 and browsers could not display the sitemap
+
 ## [1.4.1] — 2026-09-14
 
 ### Fixed
