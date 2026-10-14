@@ -49,8 +49,8 @@ lib/
   database.sh       # createDatabase(), cleanTargetDirectoryAndDatabase()
   security.sh       # hardenSSH(), secureMariaDB(), optimizeKernel(), configureSSLHardening(),
                     # configureUnattendedUpgrades()
-  fail2ban.sh       # installFail2ban() – jails (port=http,https) + custom filters (SQLi/LFI, 4xx,
-                    # login rate limit, TYPO3 FE login with 200/403 status filter)
+  fail2ban.sh       # installFail2ban() – jails (port=http,https) + custom filters (SQLi/LFI, recon
+                    # probes, 4xx, login rate limit, TYPO3 FE login with 200/403 status filter)
   users.sh          # configureWwwUser(), setPermissions()
   typo3.sh          # installTypo3(), activateTypo3()
   state.sh          # saveConfig(), loadConfig(), markStepComplete(), isStepComplete()

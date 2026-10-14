@@ -69,6 +69,15 @@ bantime  = 24h
 findtime = 1h
 logpath  = /var/log/nginx/access.log
 
+[nginx-recon-probe]
+enabled  = true
+port     = http,https
+filter   = nginx-recon-probe
+maxretry = 5
+findtime = 10m
+bantime  = 1h
+logpath  = /var/log/nginx/access.log
+
 [nginx-4xx]
 enabled  = true
 port     = http,https
@@ -129,12 +138,28 @@ _writeFail2banFilters() {
   cat > /etc/fail2ban/filter.d/nginx-sqli-lfi.conf <<'EOF'
 [Definition]
 # Detect SQL injection, LFI, and XSS attempts in nginx access logs.
-# The second line catches reconnaissance probes for paths that never exist on a
-# TYPO3 site (WordPress logins, dotfiles, phpMyAdmin) — an immediate ban signal.
+# A single match is an attack payload, never a legitimate request — immediate ban.
+# Reconnaissance probes for paths that do not exist (wp-login.php, /.git/, ...)
+# live in nginx-recon-probe with a lenient threshold, see there.
 # (?i) makes matching case-insensitive (attackers vary case to evade filters).
 # %% encodes a literal % sign for Python ConfigParser interpolation.
 failregex = (?i)^<HOST> \S+ \S+ \[[^\]]*\] "(?:GET|POST|HEAD) [^"]*(union[\+%%20 ]+(?:all[\+%%20 ]+)?select|select[\+%%20 ]+[^"]+[\+%%20 ]+from[\+%%20 ]|insert[\+%%20 ]+into[\+%%20 ]|drop[\+%%20 ]+table[\+%%20 ]|'[\+%%20 ]*or[\+%%20 ]*'|/etc/passwd|/etc/shadow|/proc/self/|\.\.%%2[Ff]|%%2[Ee]%%2[Ee]%%2[Ff]|\.\.\/\.\.\/|<script[\s>]|javascript:|eval\(base64_decode|eval\(base64)[^"]*" \d+ \d+
-            (?i)^<HOST> \S+ \S+ \[[^\]]*\] "(?:GET|POST|HEAD) [^"]*(wp-login\.php|wp-admin/|xmlrpc\.php|phpmyadmin|/\.env(?:\s|\?|\.example)|/\.git/)[^"]*" \d+ \d+
+
+ignoreregex =
+EOF
+
+  # Reconnaissance probes for paths that never exist on a TYPO3 site.
+  # Kept apart from nginx-sqli-lfi on purpose: security and reputation scanners
+  # (site checkers, antivirus and blocklist vendors re-checking a site) request
+  # /.git/HEAD or /.env on every visit. Banning them on the first hit makes the
+  # site time out for exactly the services that confirm it is clean — a stale
+  # malware or phishing listing then never gets lifted. The paths are already
+  # answered with 403/444 by nginx, so the lenient threshold costs nothing.
+  cat > /etc/fail2ban/filter.d/nginx-recon-probe.conf <<'EOF'
+[Definition]
+# Detect repeated probes for WordPress, phpMyAdmin and dotfile paths.
+# (?i) makes matching case-insensitive (attackers vary case to evade filters).
+failregex = (?i)^<HOST> \S+ \S+ \[[^\]]*\] "(?:GET|POST|HEAD) [^"]*(wp-login\.php|wp-admin/|xmlrpc\.php|phpmyadmin|/\.env(?:\s|\?|\.example)|/\.git/)[^"]*" \d+ \d+
 
 ignoreregex =
 EOF
@@ -207,7 +232,7 @@ _testFail2banFilters() {
 203.0.113.5 - - [10/Jul/2026:14:00:04 +0000] "POST ${typo3LoginPathDE} HTTP/1.1" 200 5000
 EOF
 
-  local filterNames=(nginx-sqli-lfi nginx-4xx nginx-login-ratelimit)
+  local filterNames=(nginx-sqli-lfi nginx-recon-probe nginx-4xx nginx-login-ratelimit)
   if [[ "${hasFrontendLogin:-true}" == 'true' && -n "${typo3LoginPathDE:-}" ]]; then
     filterNames+=(typo3-fe-login)
   fi
