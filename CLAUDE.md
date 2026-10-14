@@ -7,6 +7,8 @@ Bash-based installer for TYPO3 on Ubuntu servers. Supports TYPO3 v12 LTS and v13
 Shared, project-independent guidelines are cloned next to this project in
 `../developer-guidelines/`; `../developer-guidelines/AGENTS.md` gives the read order.
 
+@../developer-guidelines/AGENTS.md
+
 This project holds no PHP and no TYPO3 extension code, so most rule files do not apply.
 Two do, and are mandatory:
 

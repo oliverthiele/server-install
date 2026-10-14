@@ -1,0 +1,56 @@
+# Restricted areas — allowlist and path maps, included in nginx.conf http block.
+# This file is copied to /etc/nginx/snippets/ during installation.
+#
+# Inert until snippets/restricted-areas.nginx is included in a server block
+# (opt-in, see the commented include in sites-available/typo3.nginx). Without
+# that include the variables below are evaluated by nobody.
+#
+# What is restricted: the TYPO3 backend and the install tool — including the
+# install tool through the frontend entry point (/?__typo3_install), which a
+# location-based rule on /typo3/ does not cover. Clients outside the allowlist
+# get a 404. This is an additional layer; it does not replace strong backend
+# passwords or MFA.
+
+# Allowlist — replace the documentation ranges (RFC 5737 / RFC 3849, they
+# match nobody) with your office, VPN and server addresses. List the IPv6
+# range of every network that has one: browsers prefer IPv6, and a network
+# listed with IPv4 only locks its users out as soon as it gets IPv6.
+geo $restricted_area_allowed {
+    default                     0;
+
+    # Local requests (TYPO3 server response check, cron, monitoring)
+    127.0.0.1/32                1;
+    ::1/128                     1;
+
+    # Examples — replace:
+    203.0.113.10                1;    # office
+    198.51.100.0/24             1;    # VPN
+    2001:db8::/32               1;    # IPv6 range
+}
+
+# TYPO3 backend path. /typo3 is the default; if
+# $GLOBALS['TYPO3_CONF_VARS']['BE']['entryPoint'] is changed (e.g. /backend),
+# add or replace the pattern here.
+map $uri $restricted_is_backend {
+    default                     0;
+    ~^/typo3(/|$)               1;
+}
+
+# Install tool through the frontend entry point: /?__typo3_install
+map $args $restricted_is_install_tool {
+    default                     0;
+    ~(^|&)__typo3_install       1;
+}
+
+# Further areas (e.g. the UI of a statistics tool proxied under a path) can be
+# added as another map on $uri and appended to the key below; endpoints that
+# must stay public need their own map on $request_uri that clears the flag.
+map $restricted_is_backend$restricted_is_install_tool $restricted_area {
+    default                     1;
+    00                          0;
+}
+
+map $restricted_area$restricted_area_allowed $restricted_area_deny {
+    default                     0;
+    10                          1;
+}

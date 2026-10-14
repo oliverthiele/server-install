@@ -182,7 +182,7 @@ failregex = ^<HOST> \S+ \S+ \[[^\]]*\] "[^"]+" (?:403|429) \d+
 # TYPO3 backend requests are never counted: an open backend tab with an expired
 # session keeps polling via ajax and produces repeated 403s — banning the editor
 # working in /typo3 is worse than missing a scanner hit on it (login brute force
-# is handled by TYPO3's own lockout and optionally backend-ip-restriction.nginx).
+# is handled by TYPO3's own lockout and optionally restricted-areas.nginx).
 ignoreregex = ^\S+ \S+ \S+ \[[^\]]*\] "[A-Z]+ /typo3
 EOF
 

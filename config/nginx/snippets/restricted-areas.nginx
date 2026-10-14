@@ -1,0 +1,18 @@
+# Restricted areas — OPTIONAL, disabled by default. Include inside the server block.
+# This file is copied to /etc/nginx/snippets/ during installation.
+#
+# Allowlist and path maps: snippets/restricted-areas-maps.nginx (http context).
+#
+# HOW TO ENABLE:
+#   1. Replace the example addresses in restricted-areas-maps.nginx with your own.
+#   2. If the TYPO3 backend entry point is not /typo3, adjust the map there.
+#   3. Uncomment the include in /etc/nginx/sites-available/typo3.nginx.
+#   4. nginx -t && systemctl reload nginx
+#   5. Check from a network outside the allowlist: /typo3 and /?__typo3_install
+#      answer 404, the frontend answers 200.
+#
+# A server-level "if … return" runs before any location is chosen, so it covers
+# every location — no own PHP block, no second TYPO3_CONTEXT to keep in sync.
+if ($restricted_area_deny) {
+    return 404;
+}

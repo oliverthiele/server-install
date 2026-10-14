@@ -157,7 +157,8 @@ server-install/
             ├── method-filter.nginx        # HTTP method filtering
             ├── rate-limiting-zones.nginx  # limit_req zones (http context)
             ├── rate-limiting-login.nginx  # Rate limiting for TYPO3 login paths
-            ├── backend-ip-restriction.nginx # Opt-in: IP allowlist for /typo3/ (disabled by default)
+            ├── restricted-areas-maps.nginx # Allowlist + path maps for restricted areas (http context)
+            ├── restricted-areas.nginx     # Opt-in: backend + install tool only from the allowlist
             ├── monit.nginx                # Example: reverse proxy for a local web UI (e.g. Monit on :2812)
             └── BasicAuth.nginx            # Basic auth with IP whitelist
 ```
@@ -397,13 +398,24 @@ bin/bot-policy/bot-policy.sh --activate          # Apply the draft non-interacti
 
 ### Backend IP Restriction (opt-in)
 
-`/etc/nginx/snippets/backend-ip-restriction.nginx` restricts `/typo3/` to an IP allowlist (office, VPN). It is generated
-on every install but **disabled by default** — the include line in `typo3.nginx` is commented out and the example IPs
-use RFC 5737 documentation ranges that match nobody.
+The TYPO3 backend and the install tool can be limited to known networks (office, VPN). Clients outside the allowlist
+get a 404. The restriction is installed but **disabled by default**:
 
-To enable: edit the allowlist in the snippet, uncomment the include in
-`/etc/nginx/sites-available/typo3.nginx`, and follow the TYPO3 v12/v13 note inside the snippet (the
-`location /typo3/` block in `typo3-rewrite.nginx` must be commented out — `nginx -t` fails loudly if you forget).
+- `snippets/restricted-areas-maps.nginx` (http context, included in `nginx.conf`) holds the allowlist and the path maps.
+  Its example addresses use the RFC 5737 / RFC 3849 documentation ranges and match nobody.
+- `snippets/restricted-areas.nginx` holds a single server-level `if (…) { return 404; }`. Its include in `typo3.nginx`
+  is commented out.
+
+To enable: replace the example addresses, adjust the backend path if `BE.entryPoint` is not `/typo3`, uncomment the
+include in `/etc/nginx/sites-available/typo3.nginx`, then `nginx -t && systemctl reload nginx`. Check from a network
+outside the allowlist that `/typo3` and `/?__typo3_install` answer 404 while the frontend answers 200.
+
+Covered are the backend path **and** the install tool through the frontend entry point (`/?__typo3_install`), which a
+location on `/typo3/` alone does not reach. Because the check runs before any location is chosen, the snippet needs no
+PHP block of its own — the `TYPO3_CONTEXT` stays in one place.
+
+List the IPv6 range of every allowed network: browsers prefer IPv6, so a network listed with IPv4 only locks its users
+out as soon as it gets IPv6.
 
 This is an additional layer for setups where backend users work from known networks. It does not replace strong backend
 passwords or MFA.
