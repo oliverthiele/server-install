@@ -67,8 +67,9 @@ location = /favicon.ico {
     access_log off;
 }
 
-# robots.txt
+# robots.txt — a physical file wins; otherwise TYPO3 answers via a static route in the site config
 location = /robots.txt {
+    try_files $uri /index.php?$args;
     expires 1d;
     add_header Cache-Control "public";
     log_not_found off;
