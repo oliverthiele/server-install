@@ -526,7 +526,8 @@ have a frontend login?" is answered with yes; otherwise a placeholder snippet do
 | `nginx-http-auth`       | BasicAuth failures                             | 3        | 1 h     |
 | `nginx-botsearch`       | Requests for known bot/scanner paths           | 2        | 24 h    |
 | `nginx-limit-req`       | nginx `limit_req` violations (error log)       | 5        | 1 h     |
-| `nginx-sqli-lfi`        | SQL injection, LFI, XSS, recon probes          | 1        | 24 h    |
+| `nginx-sqli-lfi`        | SQL injection, LFI, XSS payloads               | 1        | 24 h    |
+| `nginx-recon-probe`     | Probes for WordPress, phpMyAdmin, dotfiles     | 5        | 1 h     |
 | `nginx-4xx`             | Repeated 4xx responses (400/404 excluded)      | 20       | 1 h     |
 | `nginx-login-ratelimit` | 429 responses from login rate limiting         | 3        | 6 h     |
 | `typo3-fe-login`        | Failed TYPO3 frontend logins (status 200/403)¹ | 5        | 6 h     |
@@ -535,8 +536,10 @@ have a frontend login?" is answered with yes; otherwise a placeholder snippet do
 
 The `typo3-fe-login` filter only counts POST requests answered with status 200 or 403 — successful logins redirect with
 302/303 and are never counted, so users who log in several times in a row are not banned. The SQLi/LFI filter matches
-case-insensitively and additionally bans single requests to paths that never exist on a TYPO3 site (`wp-login.php`,
-`xmlrpc.php`, `/.env`, `/.git/`, phpMyAdmin).
+case-insensitively and bans on the first attack payload. Probes for paths that never exist on a TYPO3 site
+(`wp-login.php`, `xmlrpc.php`, `/.env`, `/.git/`, phpMyAdmin) are counted separately by `nginx-recon-probe` and only
+ban after 5 hits in 10 minutes: security scanners and antivirus vendors request `/.git/HEAD` on every check, and a
+first-hit ban makes the site time out for them — a stale malware or phishing listing then cannot be re-checked.
 
 Useful commands:
 
