@@ -45,6 +45,30 @@ addPhpRepo() {
   apt update
 }
 
+# Backups of system files this installer edits go to ${BACKUP_ROOT}/<timestamp>/<original path>,
+# never next to the original: apt reads every file in /etc/apt/sources.list.d/ and prints a notice
+# for each name it does not know (<file>.bak-<timestamp> is not on its list of ignored suffixes).
+BACKUP_ROOT="${BACKUP_ROOT:-/var/backups/ServerInstall}"
+
+# Prints the backup path of <file> for <timestamp>, e.g.
+# /var/backups/ServerInstall/20261027-222020/etc/apt/sources.list.d/hetzner-mirror.sources
+# Usage: backupPath <timestamp> <absolute file path>
+backupPath() {
+  printf '%s%s' "${BACKUP_ROOT}/${1}" "${2}"
+}
+
+# Copies <file> to its backupPath (mode 700 directories, only root reads the backups) and prints
+# that path. Returns 1 if the copy could not be made.
+# Usage: backupFileForRollback <timestamp> <absolute file path>
+backupFileForRollback() {
+  local backupFile
+  backupFile="$(backupPath "${1}" "${2}")"
+  mkdir -p "$(dirname "${backupFile}")" || return 1
+  chmod 700 "${BACKUP_ROOT}" "${BACKUP_ROOT}/${1}" 2>/dev/null || true
+  cp -p "${2}" "${backupFile}" || return 1
+  printf '%s' "${backupFile}"
+}
+
 # Adds the official Ubuntu security archive as an additional apt source.
 #
 # Provider mirrors (Hetzner and others) can trail the official archive by hours, sometimes more
@@ -151,8 +175,10 @@ Signed-By: ${keyring}"
 
   local backupFile=""
   if [[ -f "${sourceFile}" ]]; then
-    backupFile="${sourceFile}.bak-$(date +%Y%m%d-%H%M%S)"
-    cp -p "${sourceFile}" "${backupFile}"
+    backupFile="$(backupFileForRollback "$(date +%Y%m%d-%H%M%S)" "${sourceFile}")" || {
+      warn "Could not back up ${sourceFile} — nothing changed"
+      return 1
+    }
   fi
   printf '%s\n' "${managedContent}" > "${sourceFile}"
   chmod 644 "${sourceFile}"
@@ -251,7 +277,7 @@ listSourcesWithoutSignedBy() {
 }
 
 # Adds the Ubuntu archive keyring as Signed-By to the sources listed by listSourcesWithoutSignedBy.
-# Edits the files in place after a backup (<file>.bak-<timestamp>, which apt ignores), then tests apt:
+# Edits the files in place after a backup (backupFileForRollback, outside /etc/apt), then tests apt:
 # the configured index targets must be unchanged, apt-get update must show no new problem and a
 # simulated dist-upgrade must work (aptSourcesHealthy). On any failure every file is restored.
 #
@@ -289,7 +315,7 @@ addSignedByToUbuntuSources() {
     return 0
   fi
 
-  local targetsBefore baselineProblems timestamp file backupFile
+  local targetsBefore baselineProblems timestamp file backupFile failed="false"
   # shellcheck disable=SC2016
   targetsBefore="$(apt-get indextargets --format '$(SITE) $(RELEASE) $(COMPONENT)' 2>/dev/null | sort -u || true)"
   baselineProblems="$(aptUpdateProblems)"
@@ -297,8 +323,11 @@ addSignedByToUbuntuSources() {
 
   local -a changedFiles=()
   for file in "${files[@]}"; do
-    backupFile="${file}.bak-${timestamp}"
-    cp -p "${file}" "${backupFile}"
+    if ! backupFile="$(backupFileForRollback "${timestamp}" "${file}")"; then
+      warn "Could not back up ${file} — restoring what was changed so far"
+      failed="true"
+      break
+    fi
     changedFiles+=("${file}")
     case "${file}" in
       *.sources)
@@ -337,21 +366,23 @@ addSignedByToUbuntuSources() {
     echo "INFO Signed-By added in ${file} (backup: ${backupFile})"
   done
 
-  echo "INFO Testing apt with the changed sources..."
-  local targetsAfter failed="false"
-  # shellcheck disable=SC2016
-  targetsAfter="$(apt-get indextargets --format '$(SITE) $(RELEASE) $(COMPONENT)' 2>/dev/null | sort -u || true)"
-  if [[ "${targetsAfter}" != "${targetsBefore}" ]]; then
-    warn "The configured package sources changed (a source was lost or added) — a Signed-By edit must not do that"
-    failed="true"
-  elif ! aptSourcesHealthy "${baselineProblems}"; then
-    failed="true"
+  if [[ "${failed}" == "false" ]]; then
+    echo "INFO Testing apt with the changed sources..."
+    local targetsAfter
+    # shellcheck disable=SC2016
+    targetsAfter="$(apt-get indextargets --format '$(SITE) $(RELEASE) $(COMPONENT)' 2>/dev/null | sort -u || true)"
+    if [[ "${targetsAfter}" != "${targetsBefore}" ]]; then
+      warn "The configured package sources changed (a source was lost or added) — a Signed-By edit must not do that"
+      failed="true"
+    elif ! aptSourcesHealthy "${baselineProblems}"; then
+      failed="true"
+    fi
   fi
 
   if [[ "${failed}" == "true" ]]; then
     warn "Rolling back the Signed-By changes"
     for file in "${changedFiles[@]}"; do
-      cp -p "${file}.bak-${timestamp}" "${file}"
+      cp -p "$(backupPath "${timestamp}" "${file}")" "${file}"
     done
     apt-get update >/dev/null 2>&1 || warn "apt update still fails after the rollback — check /etc/apt/sources.list.d/"
     return 1

@@ -592,7 +592,9 @@ The Hetzner image ships its mirror entries without a `Signed-By` line, so every 
 `Missing Signed-By in the sources.list(5) entry`. The script lists those entries (Ubuntu archive family only;
 third-party sources such as nodesource or sury bring their own key and are never touched). `install.sh` asks whether
 to add the Ubuntu archive keyring; on the command line it needs `--fix-signed-by` or a `y` at the prompt, `--yes`
-alone does not edit existing files. The files are backed up as `<file>.bak-<timestamp>` first.
+alone does not edit existing files. The files are backed up first, to
+`/var/backups/ServerInstall/<timestamp>/<original path>` — not next to the original, because apt reads every file in
+`/etc/apt/sources.list.d/` and prints a notice for each name it does not know.
 
 Every change is tested before it stays: `apt-get update` must show no problem that was not there before, a simulated
 `apt-get -s dist-upgrade` must work and, for `Signed-By`, the list of configured package sources must be identical.
