@@ -15,6 +15,8 @@
 SCRIPT_DIR_TUNE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../lib/utils.sh
 source "${SCRIPT_DIR_TUNE}/../lib/utils.sh"
+# shellcheck source=../lib/system.sh
+source "${SCRIPT_DIR_TUNE}/../lib/system.sh"
 
 # ── Tuning ratios (adjust if needed) ──────────────────────────────────────────
 
@@ -309,8 +311,7 @@ for i in "${!PHP_POOL_CONFS[@]}"; do
   conf="${PHP_POOL_CONFS[$i]}"
   ver="${PHP_VERSIONS[$i]}"
 
-  backup="${conf}.bak.${TIMESTAMP}"
-  cp "${conf}" "${backup}" || die "Failed to create backup: ${backup}"
+  backup="$(backupFileForRollback "${TIMESTAMP}" "${conf}")" || die "Failed to create backup of ${conf}"
   echo "INFO PHP ${ver}: backup created: ${backup}"
 
   if [ "$ver" = "$PRIMARY_VERSION" ]; then

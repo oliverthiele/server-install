@@ -24,6 +24,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `apt-get -s dist-upgrade` works and, for `Signed-By`, the configured package sources are unchanged. A failed test
   restores every file
 
+### Fixed
+
+- `bin/tune-server.sh` now backs up the PHP-FPM pool files to `/var/backups/ServerInstall/<timestamp>/<original path>`
+  instead of `<file>.bak.<timestamp>` next to them, like the apt source changes
+
 ## [1.5.0] — 2026-10-14
 
 ### Changed
