@@ -18,7 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The same script lists apt sources of the Ubuntu archive family without `Signed-By` (the Hetzner image ships its
   mirror entries that way, so `apt update` prints `Missing Signed-By` every time) and adds the Ubuntu archive keyring:
   `install.sh` asks first, the script needs `--fix-signed-by` or a `y` at the prompt. Third-party sources are never
-  touched; files are backed up as `<file>.bak-<timestamp>`
+  touched; files are backed up to `/var/backups/ServerInstall/<timestamp>/<original path>` (not next to the original:
+  apt reads every file in `/etc/apt/sources.list.d/` and notes each name it does not know)
 - Each change to the apt sources is tested before it stays: `apt-get update` shows no new problem, a simulated
   `apt-get -s dist-upgrade` works and, for `Signed-By`, the configured package sources are unchanged. A failed test
   restores every file
