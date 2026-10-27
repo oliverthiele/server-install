@@ -64,6 +64,7 @@ Before running this script, ensure you have:
 
   1. A freshly installed Ubuntu 22.04, 24.04, or 26.04
   2. Updated the system and rebooted:
+       bin/setup-apt-security-source.sh --yes   # optional: security fixes straight from Ubuntu
        apt update && apt --assume-yes dist-upgrade && apt --assume-yes autoremove
        reboot
   3. Added your SSH public key to /root/.ssh/authorized_keys
@@ -106,6 +107,10 @@ fi
 
 # Step 2: Install system dependencies
 if ! isStepComplete "dependencies"; then
+  # Read security fixes from the official Ubuntu archive too — provider mirrors can trail it by a day
+  addUbuntuSecuritySource || warn "Official Ubuntu security archive not added — run bin/setup-apt-security-source.sh later"
+  # Hetzner's mirror entries lack Signed-By (apt warns on every update) — ask, add, test apt
+  offerSignedByFix
   installDependencies
   installSoftware
   configureImageMagick

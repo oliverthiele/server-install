@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `bin/setup-apt-security-source.sh` and `addUbuntuSecuritySource()` in `lib/system.sh`: read the Ubuntu
+  `<codename>-security` pocket from the official archive in addition to the provider mirror. Hetzner's mirror trailed
+  Canonical by hours to more than a day for a critical security fix, which is the time a server stayed exposed. The
+  entry (`/etc/apt/sources.list.d/ubuntu-security.sources`) is fitted to the system (codename, architecture, existing
+  components, Ubuntu archive keyring) after the existing sources were inspected, is skipped when an official host
+  already serves the pocket, and is rolled back if the apt test fails. `install.sh` runs it at the start of step 2
+- The same script lists apt sources of the Ubuntu archive family without `Signed-By` (the Hetzner image ships its
+  mirror entries that way, so `apt update` prints `Missing Signed-By` every time) and adds the Ubuntu archive keyring:
+  `install.sh` asks first, the script needs `--fix-signed-by` or a `y` at the prompt. Third-party sources are never
+  touched; files are backed up as `<file>.bak-<timestamp>`
+- Each change to the apt sources is tested before it stays: `apt-get update` shows no new problem, a simulated
+  `apt-get -s dist-upgrade` works and, for `Signed-By`, the configured package sources are unchanged. A failed test
+  restores every file
+
 ## [1.5.0] — 2026-10-14
 
 ### Changed

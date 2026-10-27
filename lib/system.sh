@@ -45,6 +45,342 @@ addPhpRepo() {
   apt update
 }
 
+# Adds the official Ubuntu security archive as an additional apt source.
+#
+# Provider mirrors (Hetzner and others) can trail the official archive by hours, sometimes more
+# than a day. For a critical fix that is the difference between patched and exposed, so the
+# "<codename>-security" pocket is also read from Canonical directly. apt takes the highest version
+# across all sources: once the mirror has caught up nothing changes, until then the fix comes from
+# the official archive. Only the security pocket is added, never -updates or -backports.
+#
+# Checks the existing sources first (apt-get indextargets reads deb822 and one-line files alike):
+#   - not Ubuntu                                  -> nothing to do
+#   - an official host already serves the pocket  -> nothing to do
+#   - otherwise writes /etc/apt/sources.list.d/ubuntu-security.sources, with the suite, the
+#     components and the host (security.ubuntu.com, ports.ubuntu.com on non-x86) fitted to the system
+# Runs apt-get update afterwards and rolls the file back if that fails. Idempotent.
+#
+# Usage: addUbuntuSecuritySource [--dry-run]
+# Sets ubuntuSecurityAction to one of: unsupported, present, current, add, update
+# Returns 1 if the source could not be added.
+addUbuntuSecuritySource() {
+  local dryRun="false"
+  [[ "${1:-}" == "--dry-run" ]] && dryRun="true"
+
+  local sourceFile="/etc/apt/sources.list.d/ubuntu-security.sources"
+  local keyring="/usr/share/keyrings/ubuntu-archive-keyring.gpg"
+  # [.] instead of \. — awk -v would process the escape and warn
+  local officialHostPattern='^https?://(security|archive|ports)[.]ubuntu[.]com/'
+  ubuntuSecurityAction="none"
+
+  local distroId codename architecture archiveUri suite components existingTargets
+  distroId="$(. /etc/os-release && echo "${ID:-}")"
+  codename="$(. /etc/os-release && echo "${VERSION_CODENAME:-}")"
+  architecture="$(dpkg --print-architecture)"
+
+  if [[ "${distroId}" != "ubuntu" ]] || [[ -z "${codename}" ]]; then
+    echo "INFO Not Ubuntu (${distroId:-unknown}) — official security archive not added"
+    ubuntuSecurityAction="unsupported"
+    return 0
+  fi
+
+  case "${architecture}" in
+    amd64|i386) archiveUri="https://security.ubuntu.com/ubuntu" ;;
+    *)          archiveUri="https://ports.ubuntu.com/ubuntu-ports" ;;
+  esac
+  suite="${codename}-security"
+
+  # $(SITE) is the full URI of a source, e.g. https://mirror.hetzner.com/ubuntu/security
+  # shellcheck disable=SC2016
+  existingTargets="$(apt-get indextargets --format '$(SITE) $(RELEASE) $(COMPONENT)' 2>/dev/null | sort -u || true)"
+
+  # Same components as the security pocket the system already reads, so universe stays covered
+  components="$(printf '%s\n' "${existingTargets}" \
+    | awk -v suite="${suite}" '$2 == suite { print $3 }' | sort -u | tr '\n' ' ' | sed 's/ $//')"
+  components="${components:-main restricted universe multiverse}"
+
+  local managedContent
+  managedContent="# Managed by ServerInstall (bin/setup-apt-security-source.sh).
+# The official Ubuntu security archive, in addition to the provider mirror configured elsewhere.
+# apt uses the highest version found in any source, so a security fix is available as soon as
+# Canonical publishes it, not when the mirror has caught up.
+Types: deb
+URIs: ${archiveUri}
+Suites: ${suite}
+Components: ${components}
+Signed-By: ${keyring}"
+
+  if [[ -f "${sourceFile}" ]]; then
+    if [[ "$(cat "${sourceFile}")" == "${managedContent}" ]]; then
+      echo "INFO Official Ubuntu security archive already configured (${sourceFile})"
+      ubuntuSecurityAction="current"
+      return 0
+    fi
+    ubuntuSecurityAction="update"
+  elif printf '%s\n' "${existingTargets}" \
+    | awk -v suite="${suite}" -v pattern="${officialHostPattern}" \
+        '$2 == suite && $1 ~ pattern { found = 1 } END { exit !found }'; then
+    echo "INFO ${suite} is already read from an official Ubuntu host — nothing to add"
+    ubuntuSecurityAction="present"
+    return 0
+  else
+    ubuntuSecurityAction="add"
+  fi
+
+  if [[ "${codename}" == "focal" ]]; then
+    warn "Ubuntu 20.04 is out of standard support: ${suite} gets no new fixes. Security updates need Ubuntu Pro (ESM)."
+  fi
+
+  if [[ ! -f "${keyring}" ]]; then
+    warn "${keyring} not found (package ubuntu-keyring) — official security archive not added"
+    return 1
+  fi
+
+  echo "INFO Official Ubuntu security archive (${ubuntuSecurityAction}): ${sourceFile}"
+  echo "     ${archiveUri} ${suite} (${components})"
+
+  if [[ "${dryRun}" == "true" ]]; then
+    echo "DRY-RUN: would write ${sourceFile}:"
+    printf '%s\n' "${managedContent}" | sed 's/^/     | /'
+    return 0
+  fi
+
+  # Problems apt reports today are not the new source's fault — remember them for the comparison
+  local baselineProblems
+  baselineProblems="$(aptUpdateProblems)"
+
+  local backupFile=""
+  if [[ -f "${sourceFile}" ]]; then
+    backupFile="${sourceFile}.bak-$(date +%Y%m%d-%H%M%S)"
+    cp -p "${sourceFile}" "${backupFile}"
+  fi
+  printf '%s\n' "${managedContent}" > "${sourceFile}"
+  chmod 644 "${sourceFile}"
+
+  echo "INFO Testing apt with the new source..."
+  if ! aptSourcesHealthy "${baselineProblems}"; then
+    warn "apt does not work cleanly with the new source — rolling back"
+    if [[ -n "${backupFile}" ]]; then
+      cp -p "${backupFile}" "${sourceFile}"
+    else
+      rm -f "${sourceFile}"
+    fi
+    apt-get update >/dev/null 2>&1 || warn "apt update still fails after the rollback — check /etc/apt/sources.list.d/"
+    return 1
+  fi
+  echo "INFO Official Ubuntu security archive added"
+}
+
+# Error and warning lines of apt-get update (E:/W:), sorted. Compared before and after a source
+# change: only problems that are new count against the change.
+aptUpdateProblems() {
+  apt-get update 2>&1 | grep -E '^[EW]:' | sort -u || true
+}
+
+# Tests that apt still works after a change to the sources:
+#   1. apt-get update succeeds and reports no E:/W: line that was not there before
+#   2. a simulated dist-upgrade (apt-get -s) runs through, i.e. the package lists are usable
+# Usage: aptSourcesHealthy "<output of aptUpdateProblems before the change>"
+# Returns 1 on any failure and prints the reason. Sets aptMissingSignedByNotes to the number of
+# "Missing Signed-By" notes in the update output.
+aptSourcesHealthy() {
+  local baseline="${1:-}" output status=0 problems newProblems
+  output="$(apt-get update 2>&1)" || status=$?
+  problems="$(printf '%s\n' "${output}" | grep -E '^[EW]:' | sort -u || true)"
+
+  if (( status != 0 )); then
+    warn "apt-get update failed (exit ${status}):"
+    printf '%s\n' "${problems}" | sed 's/^/     /'
+    return 1
+  fi
+
+  newProblems="$(comm -13 <(printf '%s\n' "${baseline}" | sort -u) <(printf '%s\n' "${problems}" | sort -u) \
+    | grep -v '^$' || true)"
+  if [[ -n "${newProblems}" ]]; then
+    warn "apt-get update reports new problems:"
+    printf '%s\n' "${newProblems}" | sed 's/^/     /'
+    return 1
+  fi
+
+  if ! apt-get -s dist-upgrade >/dev/null 2>&1; then
+    warn "apt-get -s dist-upgrade (simulation) failed"
+    return 1
+  fi
+
+  aptMissingSignedByNotes="$(printf '%s\n' "${output}" | grep -c 'Missing Signed-By' || true)"
+  echo "INFO apt-get update is clean and apt-get -s dist-upgrade works (Missing Signed-By notes: ${aptMissingSignedByNotes})"
+}
+
+# Sources whose packages are signed with the Ubuntu archive key: Canonical's archives and the Hetzner
+# mirrors. [.] instead of \. because awk -v would process the escape and warn.
+ubuntuArchiveSourcePattern() {
+  printf '%s\n' '(^|[ \t])https?://(([a-z0-9-]+[.])?(archive|security|ports)[.]ubuntu[.]com|mirror[.]hetzner[.](com|de))/ubuntu'
+}
+
+# Lists apt sources of the Ubuntu archive family that have no Signed-By (one "file: entry" line each).
+# Without it apt prints "Missing Signed-By in the sources.list(5) entry" on every update and trusts
+# the global keyring. Third-party sources (nodesource, sury, ...) bring their own key and are not listed.
+# Reads deb822 (*.sources) and one-line (*.list, sources.list) files; changes nothing.
+listSourcesWithoutSignedBy() {
+  local pattern file
+  pattern="$(ubuntuArchiveSourcePattern)"
+  for file in /etc/apt/sources.list /etc/apt/sources.list.d/*.sources /etc/apt/sources.list.d/*.list; do
+    [[ -f "${file}" ]] || continue
+    case "${file}" in
+      *.sources)
+        awk -v file="${file}" -v pattern="${pattern}" '
+          function flush() {
+            if (uris ~ pattern && !signed && !disabled) print file ": " uris
+            uris = ""; signed = 0; disabled = 0
+          }
+          /^[ \t]*$/ { flush(); next }
+          /^#/ { next }
+          tolower($1) == "uris:" { uris = $0; sub(/^[^:]*:[ \t]*/, "", uris) }
+          tolower($1) == "signed-by:" { signed = 1 }
+          tolower($1) == "enabled:" && tolower($2) == "no" { disabled = 1 }
+          END { flush() }
+        ' "${file}"
+        ;;
+      *)
+        awk -v file="${file}" -v pattern="${pattern}" '
+          /^[ \t]*deb(-src)?[ \t]/ && $0 ~ pattern && $0 !~ /signed-by=/ { print file ": " $0 }
+        ' "${file}"
+        ;;
+    esac
+  done
+}
+
+# Adds the Ubuntu archive keyring as Signed-By to the sources listed by listSourcesWithoutSignedBy.
+# Edits the files in place after a backup (<file>.bak-<timestamp>, which apt ignores), then tests apt:
+# the configured index targets must be unchanged, apt-get update must show no new problem and a
+# simulated dist-upgrade must work (aptSourcesHealthy). On any failure every file is restored.
+#
+# Usage: addSignedByToUbuntuSources [--dry-run]
+# Returns 1 if the change was rolled back or could not be made.
+addSignedByToUbuntuSources() {
+  local dryRun="false"
+  [[ "${1:-}" == "--dry-run" ]] && dryRun="true"
+
+  local keyring="/usr/share/keyrings/ubuntu-archive-keyring.gpg"
+  local distroId pattern
+  distroId="$(. /etc/os-release && echo "${ID:-}")"
+  if [[ "${distroId}" != "ubuntu" ]]; then
+    echo "INFO Not Ubuntu (${distroId:-unknown}) — Signed-By not touched"
+    return 0
+  fi
+
+  local -a files=()
+  mapfile -t files < <(listSourcesWithoutSignedBy | cut -d: -f1 | sort -u)
+  if (( ${#files[@]} == 0 )); then
+    echo "INFO All Ubuntu archive sources already have Signed-By"
+    return 0
+  fi
+
+  if [[ ! -f "${keyring}" ]]; then
+    warn "${keyring} not found (package ubuntu-keyring) — Signed-By not added"
+    return 1
+  fi
+
+  pattern="$(ubuntuArchiveSourcePattern)"
+  echo "INFO Signed-By: ${keyring} would be added to:"
+  printf '     %s\n' "${files[@]}"
+  if [[ "${dryRun}" == "true" ]]; then
+    echo "DRY-RUN: no files changed."
+    return 0
+  fi
+
+  local targetsBefore baselineProblems timestamp file backupFile
+  # shellcheck disable=SC2016
+  targetsBefore="$(apt-get indextargets --format '$(SITE) $(RELEASE) $(COMPONENT)' 2>/dev/null | sort -u || true)"
+  baselineProblems="$(aptUpdateProblems)"
+  timestamp="$(date +%Y%m%d-%H%M%S)"
+
+  local -a changedFiles=()
+  for file in "${files[@]}"; do
+    backupFile="${file}.bak-${timestamp}"
+    cp -p "${file}" "${backupFile}"
+    changedFiles+=("${file}")
+    case "${file}" in
+      *.sources)
+        # Append the line to every matching stanza that has none
+        awk -v key="${keyring}" -v pattern="${pattern}" '
+          function flush(   i) {
+            for (i = 1; i <= count; i++) print buffer[i]
+            if (count > 0 && uris ~ pattern && !signed && !disabled) print "Signed-By: " key
+            count = 0; uris = ""; signed = 0; disabled = 0
+          }
+          /^[ \t]*$/ { flush(); print; next }
+          { buffer[++count] = $0 }
+          /^#/ { next }
+          tolower($1) == "uris:" { uris = $0; sub(/^[^:]*:[ \t]*/, "", uris) }
+          tolower($1) == "signed-by:" { signed = 1 }
+          tolower($1) == "enabled:" && tolower($2) == "no" { disabled = 1 }
+          END { flush() }
+        ' "${backupFile}" > "${file}"
+        ;;
+      *)
+        # deb [options] uri ...  ->  deb [options signed-by=key] uri ...
+        awk -v key="${keyring}" -v pattern="${pattern}" '
+          /^[ \t]*deb(-src)?[ \t]/ && $0 ~ pattern && $0 !~ /signed-by=/ {
+            if (match($0, /\[[^]]*\]/)) {
+              options = substr($0, RSTART, RLENGTH)
+              sub(/\]$/, " signed-by=" key "]", options)
+              $0 = substr($0, 1, RSTART - 1) options substr($0, RSTART + RLENGTH)
+            } else {
+              sub(/^[ \t]*deb(-src)?/, "& [signed-by=" key "]")
+            }
+          }
+          { print }
+        ' "${backupFile}" > "${file}"
+        ;;
+    esac
+    echo "INFO Signed-By added in ${file} (backup: ${backupFile})"
+  done
+
+  echo "INFO Testing apt with the changed sources..."
+  local targetsAfter failed="false"
+  # shellcheck disable=SC2016
+  targetsAfter="$(apt-get indextargets --format '$(SITE) $(RELEASE) $(COMPONENT)' 2>/dev/null | sort -u || true)"
+  if [[ "${targetsAfter}" != "${targetsBefore}" ]]; then
+    warn "The configured package sources changed (a source was lost or added) — a Signed-By edit must not do that"
+    failed="true"
+  elif ! aptSourcesHealthy "${baselineProblems}"; then
+    failed="true"
+  fi
+
+  if [[ "${failed}" == "true" ]]; then
+    warn "Rolling back the Signed-By changes"
+    for file in "${changedFiles[@]}"; do
+      cp -p "${file}.bak-${timestamp}" "${file}"
+    done
+    apt-get update >/dev/null 2>&1 || warn "apt update still fails after the rollback — check /etc/apt/sources.list.d/"
+    return 1
+  fi
+  echo "INFO Signed-By added and apt tested"
+}
+
+# Interactive step for install.sh: list Ubuntu archive sources without Signed-By, ask, then add it.
+offerSignedByFix() {
+  local missing answer
+  missing="$(listSourcesWithoutSignedBy)"
+  if [[ -z "${missing}" ]]; then
+    return 0
+  fi
+
+  echo "INFO apt sources without Signed-By (apt prints 'Missing Signed-By' on every update):"
+  printf '%s\n' "${missing}" | sed 's/^/     /'
+  if [[ ! -t 0 ]]; then
+    echo "INFO Not interactive — run later: bin/setup-apt-security-source.sh --fix-signed-by"
+    return 0
+  fi
+  read -rp "Add Signed-By (Ubuntu archive keyring) to these sources and test apt afterwards? [Y/n] " answer
+  if [[ "${answer}" =~ ^[nN]$ ]]; then
+    echo "INFO Skipped. Run later: bin/setup-apt-security-source.sh --fix-signed-by"
+    return 0
+  fi
+  addSignedByToUbuntuSources || warn "Signed-By not added — the sources are unchanged"
+}
+
 installSoftware() {
   echo "INFO Install System (nginx, php ${phpVersion}, MySQL, Redis, ...)"
 

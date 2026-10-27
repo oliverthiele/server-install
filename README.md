@@ -128,6 +128,7 @@ server-install/
 │   ├── add-php-version.sh                 # Install an additional PHP version side by side
 │   ├── apply-php-settings.sh              # Re-apply optimized PHP settings after updates
 │   ├── migrate-php-repo.sh                # Switch existing servers from ppa:ondrej/php to packages.sury.org
+│   ├── setup-apt-security-source.sh       # Official Ubuntu security archive as second source; adds missing Signed-By lines
 │   ├── toggle-php-slowlog.sh              # Enable/disable PHP-FPM slow log
 │   └── bot-policy/                        # Bot/crawler/search-engine rule management (whiptail TUI)
 │       ├── bot-policy.sh                  # Entry point: --report / --activate / --seed / interactive menu
@@ -566,6 +567,36 @@ fail2ban-client set typo3-fe-login unbanip 203.0.113.10
 `unattended-upgrades` is installed and enabled: security updates from the Ubuntu security pocket are applied
 automatically every day. Automatic reboots are explicitly disabled — kernel updates are installed, but the reboot
 remains a manual decision (`/var/run/reboot-required` signals when one is pending).
+
+Provider mirrors (Hetzner and others) can trail the official Ubuntu archive by hours, sometimes by more than a day.
+`bin/setup-apt-security-source.sh` adds the official `<codename>-security` pocket as a second source, so a fix
+reaches the server as soon as Canonical publishes it. apt installs the highest version it finds in any source; once
+the mirror has caught up nothing changes. `install.sh` runs the same step at the start of the dependency step.
+
+```bash
+bin/setup-apt-security-source.sh --dry-run          # show what would change
+bin/setup-apt-security-source.sh                    # apply (asks before each change)
+bin/setup-apt-security-source.sh --yes              # add the security archive without asking
+bin/setup-apt-security-source.sh --fix-signed-by    # also add the missing Signed-By lines, no prompt
+bin/setup-apt-security-source.sh --remove           # take the security archive entry out again
+```
+
+The script inspects the sources already configured and fits the entry to the system: suite from the Ubuntu
+codename, `security.ubuntu.com` (`ports.ubuntu.com` on non-x86), the components the system already reads, and the
+Ubuntu archive keyring. A stock Ubuntu install already reads the pocket from an official host; then nothing is
+added. The entry lives in `/etc/apt/sources.list.d/ubuntu-security.sources`; `apt update` runs afterwards and a
+failure rolls the change back. Ubuntu 20.04 is out of standard support — its fixes need Ubuntu Pro (ESM), no source
+changes that.
+
+The Hetzner image ships its mirror entries without a `Signed-By` line, so every `apt update` prints
+`Missing Signed-By in the sources.list(5) entry`. The script lists those entries (Ubuntu archive family only;
+third-party sources such as nodesource or sury bring their own key and are never touched). `install.sh` asks whether
+to add the Ubuntu archive keyring; on the command line it needs `--fix-signed-by` or a `y` at the prompt, `--yes`
+alone does not edit existing files. The files are backed up as `<file>.bak-<timestamp>` first.
+
+Every change is tested before it stays: `apt-get update` must show no problem that was not there before, a simulated
+`apt-get -s dist-upgrade` must work and, for `Signed-By`, the list of configured package sources must be identical.
+If a test fails, all files are restored.
 
 ### MariaDB Security
 

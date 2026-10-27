@@ -42,6 +42,12 @@ bin/
                        # 0-byte .webp leftovers? Run after site migrations (migrated settings.php
                        # may reference a processor that is not installed on this server)
   migrate-php-repo.sh  # Switches an existing server from ppa:ondrej/php to packages.sury.org
+  setup-apt-security-source.sh # Adds the official Ubuntu <codename>-security pocket next to a lagging provider
+                       # mirror (Hetzner) and, on request, the missing Signed-By to Ubuntu archive sources;
+                       # inspects existing sources first, idempotent, every change tested (apt update, simulated
+                       # dist-upgrade) and rolled back on failure; --dry-run/--fix-signed-by/--remove. Logic is
+                       # addUbuntuSecuritySource() / addSignedByToUbuntuSources() / offerSignedByFix() in
+                       # lib/system.sh, called by install.sh step 2
 lib/
   config.sh         # setVariables() – interactive prompts for TYPO3 version, domain, email
   utils.sh          # getUbuntuVersionAndSetPhpVersion(), generatePassword(), confirmInstallation()
