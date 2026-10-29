@@ -581,12 +581,12 @@ bin/setup-apt-security-source.sh --fix-signed-by    # also add the missing Signe
 bin/setup-apt-security-source.sh --remove           # take the security archive entry out again
 ```
 
-The script inspects the sources already configured and fits the entry to the system: suite from the Ubuntu
-codename, `security.ubuntu.com` (`ports.ubuntu.com` on non-x86), the components the system already reads, and the
-Ubuntu archive keyring. A stock Ubuntu install already reads the pocket from an official host; then nothing is
-added. The entry lives in `/etc/apt/sources.list.d/ubuntu-security.sources`; `apt update` runs afterwards and a
-failure rolls the change back. Ubuntu 20.04 is out of standard support — its fixes need Ubuntu Pro (ESM), no source
-changes that.
+The script inspects the sources already configured and fits the entry to the system: suite from the Ubuntu codename,
+`security.ubuntu.com` (`ports.ubuntu.com` on non-x86), the components the system already reads, and the Ubuntu
+archive keyring. A stock Ubuntu install already reads the pocket from an official host; then nothing is added. The
+entry lives in `/etc/apt/sources.list.d/ubuntu-security.sources`; `apt update` runs afterwards and a failure rolls
+the change back. A file of that name without the `# Managed by ServerInstall` header is left unchanged. Ubuntu 20.04
+is out of standard support — its fixes need Ubuntu Pro (ESM), no source changes that.
 
 The Hetzner image ships its mirror entries without a `Signed-By` line, so every `apt update` prints
 `Missing Signed-By in the sources.list(5) entry`. The script lists those entries (Ubuntu archive family only;

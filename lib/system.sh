@@ -50,6 +50,12 @@ addPhpRepo() {
 # for each name it does not know (<file>.bak-<timestamp> is not on its list of ignored suffixes).
 BACKUP_ROOT="${BACKUP_ROOT:-/var/backups/ServerInstall}"
 
+# Timestamp for one backup run, the name of the folder under ${BACKUP_ROOT}. One format for every
+# script, so the folders sort by time.
+backupTimestamp() {
+  date +%Y%m%d-%H%M%S
+}
+
 # Prints the backup path of <file> for <timestamp>, e.g.
 # /var/backups/ServerInstall/20261027-222020/etc/apt/sources.list.d/hetzner-mirror.sources
 # Usage: backupPath <timestamp> <absolute file path>
@@ -85,8 +91,9 @@ backupFileForRollback() {
 # Runs apt-get update afterwards and rolls the file back if that fails. Idempotent.
 #
 # Usage: addUbuntuSecuritySource [--dry-run]
-# Sets ubuntuSecurityAction to one of: unsupported, present, current, add, update
-# Returns 1 if the source could not be added.
+# Sets ubuntuSecurityAction to one of: unsupported, present, current, foreign, add, update
+# Returns 1 if the source could not be added, or if ubuntu-security.sources exists without the
+# "Managed by ServerInstall" header (foreign).
 addUbuntuSecuritySource() {
   local dryRun="false"
   [[ "${1:-}" == "--dry-run" ]] && dryRun="true"
@@ -140,6 +147,12 @@ Signed-By: ${keyring}"
       ubuntuSecurityAction="current"
       return 0
     fi
+    # Same rule as --remove: a file this installer did not write is left alone
+    if ! grep -q "^# Managed by ServerInstall" "${sourceFile}"; then
+      warn "${sourceFile} exists but was not written by ServerInstall — left unchanged"
+      ubuntuSecurityAction="foreign"
+      return 1
+    fi
     ubuntuSecurityAction="update"
   elif printf '%s\n' "${existingTargets}" \
     | awk -v suite="${suite}" -v pattern="${officialHostPattern}" \
@@ -175,7 +188,7 @@ Signed-By: ${keyring}"
 
   local backupFile=""
   if [[ -f "${sourceFile}" ]]; then
-    backupFile="$(backupFileForRollback "$(date +%Y%m%d-%H%M%S)" "${sourceFile}")" || {
+    backupFile="$(backupFileForRollback "$(backupTimestamp)" "${sourceFile}")" || {
       warn "Could not back up ${sourceFile} — nothing changed"
       return 1
     }
@@ -197,14 +210,21 @@ Signed-By: ${keyring}"
   echo "INFO Official Ubuntu security archive added"
 }
 
-# Error and warning lines of apt-get update (E:/W:), sorted. Compared before and after a source
-# change: only problems that are new count against the change.
+# Filters error and warning lines from apt output on stdin, sorted. apt up to 2.9.1 writes them as
+# "E:" / "W:", later versions as "Error:" / "Warning:" (APT::Output-Version), so both are matched.
+# Notices ("N:" / "Notice:", e.g. "Missing Signed-By") are not problems and are left out.
+filterAptProblems() {
+  grep -E '^(E|W|Error|Warning):' | sort -u || true
+}
+
+# Error and warning lines of apt-get update, sorted. Compared before and after a source change:
+# only problems that are new count against the change.
 aptUpdateProblems() {
-  apt-get update 2>&1 | grep -E '^[EW]:' | sort -u || true
+  apt-get update 2>&1 | filterAptProblems
 }
 
 # Tests that apt still works after a change to the sources:
-#   1. apt-get update succeeds and reports no E:/W: line that was not there before
+#   1. apt-get update succeeds and reports no error or warning line that was not there before
 #   2. a simulated dist-upgrade (apt-get -s) runs through, i.e. the package lists are usable
 # Usage: aptSourcesHealthy "<output of aptUpdateProblems before the change>"
 # Returns 1 on any failure and prints the reason. Sets aptMissingSignedByNotes to the number of
@@ -212,7 +232,7 @@ aptUpdateProblems() {
 aptSourcesHealthy() {
   local baseline="${1:-}" output status=0 problems newProblems
   output="$(apt-get update 2>&1)" || status=$?
-  problems="$(printf '%s\n' "${output}" | grep -E '^[EW]:' | sort -u || true)"
+  problems="$(printf '%s\n' "${output}" | filterAptProblems)"
 
   if (( status != 0 )); then
     warn "apt-get update failed (exit ${status}):"
@@ -319,7 +339,7 @@ addSignedByToUbuntuSources() {
   # shellcheck disable=SC2016
   targetsBefore="$(apt-get indextargets --format '$(SITE) $(RELEASE) $(COMPONENT)' 2>/dev/null | sort -u || true)"
   baselineProblems="$(aptUpdateProblems)"
-  timestamp="$(date +%Y%m%d-%H%M%S)"
+  timestamp="$(backupTimestamp)"
 
   local -a changedFiles=()
   for file in "${files[@]}"; do
@@ -391,6 +411,8 @@ addSignedByToUbuntuSources() {
 }
 
 # Interactive step for install.sh: list Ubuntu archive sources without Signed-By, ask, then add it.
+# Defaults to yes ([Y/n]): on a fresh server the change is tested and rolled back on failure.
+# bin/setup-apt-security-source.sh defaults to no ([y/N]), because it runs on servers already in use.
 offerSignedByFix() {
   local missing answer
   missing="$(listSourcesWithoutSignedBy)"

@@ -14,7 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Canonical by hours to more than a day for a critical security fix, which is the time a server stayed exposed. The
   entry (`/etc/apt/sources.list.d/ubuntu-security.sources`) is fitted to the system (codename, architecture, existing
   components, Ubuntu archive keyring) after the existing sources were inspected, is skipped when an official host
-  already serves the pocket, and is rolled back if the apt test fails. `install.sh` runs it at the start of step 2
+  already serves the pocket, and is rolled back if the apt test fails. A file of that name the installer did not write
+  is left unchanged. `install.sh` runs it at the start of step 2
 - The same script lists apt sources of the Ubuntu archive family without `Signed-By` (the Hetzner image ships its
   mirror entries that way, so `apt update` prints `Missing Signed-By` every time) and adds the Ubuntu archive keyring:
   `install.sh` asks first, the script needs `--fix-signed-by` or a `y` at the prompt. Third-party sources are never
