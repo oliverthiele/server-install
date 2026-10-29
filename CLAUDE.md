@@ -53,7 +53,7 @@ lib/
   utils.sh          # getUbuntuVersionAndSetPhpVersion(), generatePassword(), confirmInstallation()
   system.sh         # installDependencies(), addPhpRepo(), installSoftware(), installComposer(), ...
   php.sh            # installPhpRedis(), optimizePhpSettings()
-  nginx.sh          # configureNginx(), compileNginxWithBrotli(), configureBrotliInNginx()
+  nginx.sh          # configureNginx(), installBrotliModules() (package or compiled build)
   database.sh       # createDatabase(), cleanTargetDirectoryAndDatabase()
   security.sh       # hardenSSH(), secureMariaDB(), optimizeKernel(), configureSSLHardening(),
                     # configureUnattendedUpgrades()
@@ -115,7 +115,10 @@ Interrupted installations can be resumed; each step is guarded by `isStepComplet
 
 The TYPO3 site config is written to `/etc/nginx/sites-available/typo3.nginx`.
 PHP-FPM socket path is dynamic: `unix:/var/run/php/php${phpVersion}-fpm.sock`
-Nginx is compiled with Brotli (dynamic module) from source to match the installed nginx version.
+Brotli: `installBrotliModules()` installs `libnginx-mod-http-brotli-filter`/`-static` from the Ubuntu archive
+when apt has a candidate (24.04, 26.04; universe) — the packages enable themselves via
+`/etc/nginx/modules-enabled/50-mod-http-brotli-*.conf`. Otherwise (22.04, 20.04) `ngx_brotli` is compiled from
+source against the installed nginx version and loaded by `load_module` lines at the top of `nginx.conf`.
 
 `/fileadmin/` uses `location ^~ /fileadmin/` with a strict CSP (`default-src 'none'`) to prevent
 execution of uploaded files. The `^~` modifier stops PHP-FPM regex from matching fileadmin requests.

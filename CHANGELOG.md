@@ -25,6 +25,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `apt-get -s dist-upgrade` works and, for `Signed-By`, the configured package sources are unchanged. A failed test
   restores every file
 
+### Changed
+
+- Brotli for nginx comes from the Ubuntu archive where it exists (`libnginx-mod-http-brotli-filter` and `-static`,
+  24.04 and 26.04, universe) instead of a local `ngx_brotli` build. The packages depend on `nginx-abi-<version>`, so
+  apt keeps module and nginx in step, and they link the system `libbrotli1` (main), so fixes in the Brotli library
+  arrive with the security updates. A compiled module carries its own copy of the library and is never updated.
+  22.04 has no package and keeps the compiled build. Existing servers are not converted yet
+
 ### Fixed
 
 - `bin/tune-server.sh` now backs up the PHP-FPM pool files to `/var/backups/ServerInstall/<timestamp>/<original path>`

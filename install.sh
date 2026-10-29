@@ -158,12 +158,9 @@ if ! isStepComplete "typo3_install"; then
   markStepComplete "typo3_install"
 fi
 
-# Step 8: Setup Nginx with Brotli
+# Step 8: Setup Nginx with Brotli (Ubuntu package where available, compiled otherwise)
 if ! isStepComplete "nginx_setup"; then
-  getNginxVersion
-  downloadNginxSource
-  compileNginxWithBrotli
-  configureBrotliInNginx
+  installBrotliModules
   configureNginx
   markStepComplete "nginx_setup"
 fi

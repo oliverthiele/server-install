@@ -130,7 +130,7 @@ checkPrerequisites() {
   if [ "${free_gb:-0}" -ge 4 ]; then
     _pf_pass "Disk space: ${free_gb} GB free on /"
   elif [ "${free_gb:-0}" -ge 2 ]; then
-    _pf_warn "Disk space: ${free_gb} GB free — 4+ GB recommended (Brotli build + TYPO3 + packages)"
+    _pf_warn "Disk space: ${free_gb} GB free — 4+ GB recommended (TYPO3 + packages; Brotli build on 20.04/22.04)"
   else
     _pf_fail "Disk space: ${free_gb:-?} GB free — at least 2 GB required"
   fi
@@ -150,7 +150,7 @@ checkPrerequisites() {
   if getent hosts archive.ubuntu.com > /dev/null 2>&1; then
     _pf_pass "Internet: DNS resolves (archive.ubuntu.com)"
   else
-    _pf_fail "Internet: no connectivity or DNS failure — required for apt, Composer, and Brotli source download"
+    _pf_fail "Internet: no connectivity or DNS failure — required for apt, Composer, and (on 20.04/22.04) the Brotli source download"
   fi
 
   # ── 6. Conflicting web server ────────────────────────────────────────────────
