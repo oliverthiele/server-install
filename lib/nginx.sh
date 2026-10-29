@@ -174,6 +174,65 @@ compileNginxWithBrotli() {
   chmod 644 /usr/share/nginx/modules/ngx_http_brotli_*
 }
 
+# Brotli for nginx, from the Ubuntu archive where it exists, otherwise compiled.
+#
+# Ubuntu ships the modules as libnginx-mod-http-brotli-filter and -static from 23.10 on (universe),
+# so 24.04 and 26.04 have them, 22.04 does not. The packages depend on nginx-abi-<version>, so apt
+# keeps module and nginx in step, and they link the system libbrotli1 (main), so a fix in the Brotli
+# library arrives with the regular security updates. A compiled module gets neither: it carries its
+# own copy of the library and breaks nginx after an nginx upgrade to a new ABI.
+#
+# Decided by package availability, not by Ubuntu version, so a later release just works.
+installBrotliModules() {
+  if brotliPackagesAvailable; then
+    installBrotliFromPackages
+  else
+    echo "INFO Brotli packages not available on Ubuntu ${ubuntuVersion:-?} — compiling ngx_brotli"
+    getNginxVersion
+    downloadNginxSource
+    compileNginxWithBrotli
+    configureBrotliInNginx
+  fi
+}
+
+# True if apt has an installation candidate for both Brotli module packages.
+brotliPackagesAvailable() {
+  local package candidate
+  for package in libnginx-mod-http-brotli-filter libnginx-mod-http-brotli-static; do
+    candidate="$(apt-cache policy "${package}" 2>/dev/null | awk '/Candidate:/ { print $2 }')"
+    [[ -n "${candidate}" && "${candidate}" != "(none)" ]] || return 1
+  done
+}
+
+# Installs the Brotli modules with apt. The packages enable themselves through
+# /etc/nginx/modules-enabled/50-mod-http-brotli-*.conf (included by the stock nginx.conf).
+# load_module lines a compiled build put at the top of nginx.conf would load the modules a second
+# time ("module already loaded"), so they are removed — nginx.conf is backed up first.
+installBrotliFromPackages() {
+  echo "INFO Installing Brotli modules from the Ubuntu archive"
+  apt --assume-yes install libnginx-mod-http-brotli-filter libnginx-mod-http-brotli-static \
+    || die "Installing the Brotli module packages failed"
+
+  local nginxConf="/etc/nginx/nginx.conf"
+  local compiledLoadPattern='^load_module modules/ngx_http_brotli_(filter|static)_module[.]so;$'
+  if grep -Eq "${compiledLoadPattern}" "${nginxConf}"; then
+    local backupFile
+    backupFile="$(backupFileForRollback "$(backupTimestamp)" "${nginxConf}")" \
+      || die "Could not back up ${nginxConf}"
+    sed -i -E "\#${compiledLoadPattern}#d" "${nginxConf}"
+    echo "INFO Removed the load_module lines of the compiled build from ${nginxConf} (backup: ${backupFile})"
+  fi
+
+  local module
+  for module in filter static; do
+    [[ -e "/etc/nginx/modules-enabled/50-mod-http-brotli-${module}.conf" ]] \
+      || die "/etc/nginx/modules-enabled/50-mod-http-brotli-${module}.conf missing after the package install"
+  done
+  grep -Eq '^[[:space:]]*include[[:space:]]+/etc/nginx/modules-enabled/\*[.]conf;' "${nginxConf}" \
+    || die "${nginxConf} does not include /etc/nginx/modules-enabled/*.conf — the Brotli modules would not load"
+}
+
+# Compiled build only: load the modules from the top of nginx.conf.
 configureBrotliInNginx() {
   echo "INFO Configuring Brotli in Nginx"
 

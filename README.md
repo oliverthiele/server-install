@@ -22,7 +22,7 @@ installations can be resumed at any step.
 | **TYPO3**             | v12.4 LTS, v13.4 LTS and v14 (interactive selection)                                |
 | **Ubuntu**            | 22.04, 24.04, 26.04 (recommended) — 20.04 legacy¹                                   |
 | **PHP**               | 8.1 / 8.3 / 8.4 — packages.sury.org repository for PHP 8.4 on 24.04                 |
-| **Web server**        | Nginx with dynamically compiled Brotli module                                       |
+| **Web server**        | Nginx with Brotli — Ubuntu package on 24.04/26.04, compiled module on 22.04         |
 | **Database**          | MariaDB with automated hardening                                                    |
 | **Cache**             | Redis with `requirepass` authentication, page and section cache pre-configured      |
 | **Security**          | SSH hardening, fileadmin CSP, SSL/TLS, HTTP method filtering, kernel hardening      |
@@ -47,7 +47,7 @@ installations can be resumed at any step.
 | OS                   | Ubuntu 22.04, 24.04, or 26.04 LTS (fresh installation, nothing else running) |
 | RAM                  | 2 GB minimum recommended                                                     |
 | Disk                 | 4 GB free on `/`                                                             |
-| Internet             | Required (apt, Composer, GitHub for Brotli source)                           |
+| Internet             | Required (apt, Composer; GitHub for the Brotli source on 22.04)              |
 | SSH key              | Public key in `/root/.ssh/authorized_keys` before running                    |
 | Conflicting services | No Apache2, no existing Nginx site configs, ports 80/443 free                |
 
@@ -168,7 +168,10 @@ server-install/
 
 ### Web Server Stack
 
-- **Nginx** with dynamically compiled Brotli module (matched to installed nginx version)
+- **Nginx** with Brotli. On 24.04 and 26.04 the modules come from the Ubuntu archive (`libnginx-mod-http-brotli-filter`,
+  `-static`, universe): apt keeps them in step with nginx, and they use the system `libbrotli1`, so Brotli library
+  fixes arrive with the security updates. Where Ubuntu has no package (22.04) `ngx_brotli` is compiled against the
+  installed nginx version as before — that build gets no updates through apt
 - **PHP-FPM** — version depends on Ubuntu release (8.3 on 24.04, 8.1 on 22.04, 7.4 on 20.04¹)
 - **MariaDB** — MySQL-compatible, automatically hardened
 - **Redis** — page and section cache for TYPO3, secured with `requirepass`
@@ -581,12 +584,12 @@ bin/setup-apt-security-source.sh --fix-signed-by    # also add the missing Signe
 bin/setup-apt-security-source.sh --remove           # take the security archive entry out again
 ```
 
-The script inspects the sources already configured and fits the entry to the system: suite from the Ubuntu
-codename, `security.ubuntu.com` (`ports.ubuntu.com` on non-x86), the components the system already reads, and the
-Ubuntu archive keyring. A stock Ubuntu install already reads the pocket from an official host; then nothing is
-added. The entry lives in `/etc/apt/sources.list.d/ubuntu-security.sources`; `apt update` runs afterwards and a
-failure rolls the change back. Ubuntu 20.04 is out of standard support — its fixes need Ubuntu Pro (ESM), no source
-changes that.
+The script inspects the sources already configured and fits the entry to the system: suite from the Ubuntu codename,
+`security.ubuntu.com` (`ports.ubuntu.com` on non-x86), the components the system already reads, and the Ubuntu
+archive keyring. A stock Ubuntu install already reads the pocket from an official host; then nothing is added. The
+entry lives in `/etc/apt/sources.list.d/ubuntu-security.sources`; `apt update` runs afterwards and a failure rolls
+the change back. A file of that name without the `# Managed by ServerInstall` header is left unchanged. Ubuntu 20.04
+is out of standard support — its fixes need Ubuntu Pro (ESM), no source changes that.
 
 The Hetzner image ships its mirror entries without a `Signed-By` line, so every `apt update` prints
 `Missing Signed-By in the sources.list(5) entry`. The script lists those entries (Ubuntu archive family only;

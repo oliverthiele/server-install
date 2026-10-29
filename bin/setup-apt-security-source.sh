@@ -98,14 +98,14 @@ if [[ "${DRY_RUN}" == "true" ]]; then
   echo "DRY-RUN: security archive not changed."
 elif [[ "${AUTO_YES}" == "true" ]]; then
   # No prompt: the function prints its own plan, so the plan is not shown twice
-  addUbuntuSecuritySource || die "The official security archive could not be added (rolled back)"
+  addUbuntuSecuritySource || die "The official security archive was not added (see the warning above)"
 else
   addUbuntuSecuritySource --dry-run || true
   case "${ubuntuSecurityAction}" in
     add|update)
       read -rp "Add the official security archive? [y/N] " apply
       if [[ "${apply}" =~ ^[yY]$ ]]; then
-        addUbuntuSecuritySource || die "The official security archive could not be added (rolled back)"
+        addUbuntuSecuritySource || die "The official security archive was not added (see the warning above)"
       else
         echo "INFO Security archive skipped."
       fi
@@ -131,6 +131,7 @@ else
     if [[ "${FIX_SIGNED_BY}" == "true" ]]; then
       fix="y"
     elif [[ "${AUTO_YES}" != "true" ]]; then
+      # Defaults to no: this script runs on servers already in use (install.sh asks [Y/n] on a fresh one)
       read -rp "Add Signed-By (Ubuntu archive keyring) and test apt afterwards? [y/N] " fix
     else
       echo "INFO --yes does not edit existing source files. Run with --fix-signed-by to add the lines."

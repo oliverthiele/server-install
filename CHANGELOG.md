@@ -14,7 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Canonical by hours to more than a day for a critical security fix, which is the time a server stayed exposed. The
   entry (`/etc/apt/sources.list.d/ubuntu-security.sources`) is fitted to the system (codename, architecture, existing
   components, Ubuntu archive keyring) after the existing sources were inspected, is skipped when an official host
-  already serves the pocket, and is rolled back if the apt test fails. `install.sh` runs it at the start of step 2
+  already serves the pocket, and is rolled back if the apt test fails. A file of that name the installer did not write
+  is left unchanged. `install.sh` runs it at the start of step 2
 - The same script lists apt sources of the Ubuntu archive family without `Signed-By` (the Hetzner image ships its
   mirror entries that way, so `apt update` prints `Missing Signed-By` every time) and adds the Ubuntu archive keyring:
   `install.sh` asks first, the script needs `--fix-signed-by` or a `y` at the prompt. Third-party sources are never
@@ -23,6 +24,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Each change to the apt sources is tested before it stays: `apt-get update` shows no new problem, a simulated
   `apt-get -s dist-upgrade` works and, for `Signed-By`, the configured package sources are unchanged. A failed test
   restores every file
+
+### Changed
+
+- Brotli for nginx comes from the Ubuntu archive where it exists (`libnginx-mod-http-brotli-filter` and `-static`,
+  24.04 and 26.04, universe) instead of a local `ngx_brotli` build. The packages depend on `nginx-abi-<version>`, so
+  apt keeps module and nginx in step, and they link the system `libbrotli1` (main), so fixes in the Brotli library
+  arrive with the security updates. A compiled module carries its own copy of the library and is never updated.
+  22.04 has no package and keeps the compiled build. Existing servers are not converted yet
 
 ### Fixed
 

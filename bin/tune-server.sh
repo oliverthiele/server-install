@@ -305,7 +305,7 @@ read -rp "Apply these settings? [y/N] " response
 
 # ── Apply PHP-FPM settings ────────────────────────────────────────────────────
 
-TIMESTAMP=$(date +%Y%m%d%H%M%S)
+TIMESTAMP="$(backupTimestamp)"
 
 for i in "${!PHP_POOL_CONFS[@]}"; do
   conf="${PHP_POOL_CONFS[$i]}"
