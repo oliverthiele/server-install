@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] — 2026-11-03
+
 ### Added
 
 - `bin/setup-apt-security-source.sh` and `addUbuntuSecuritySource()` in `lib/system.sh`: read the Ubuntu
@@ -388,6 +390,7 @@ in a single script run.
 - Colorized "INSTALLATION COMPLETE" summary with all credentials and numbered next steps
 - ShellCheck CI workflow (GitHub Actions)
 
+[1.6.0]: https://github.com/oliverthiele/server-install/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/oliverthiele/server-install/compare/v1.4.2...v1.5.0
 [1.4.2]: https://github.com/oliverthiele/server-install/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/oliverthiele/server-install/compare/v1.4.0...v1.4.1
