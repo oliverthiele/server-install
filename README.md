@@ -22,7 +22,7 @@ installations can be resumed at any step.
 | **TYPO3**             | v12.4 LTS, v13.4 LTS and v14 (interactive selection)                                |
 | **Ubuntu**            | 22.04, 24.04, 26.04 (recommended) — 20.04 legacy¹                                   |
 | **PHP**               | 8.1 / 8.3 / 8.4 — packages.sury.org repository for PHP 8.4 on 24.04                 |
-| **Web server**        | Nginx with dynamically compiled Brotli module                                       |
+| **Web server**        | Nginx with Brotli — Ubuntu package on 24.04/26.04, compiled module on 22.04         |
 | **Database**          | MariaDB with automated hardening                                                    |
 | **Cache**             | Redis with `requirepass` authentication, page and section cache pre-configured      |
 | **Security**          | SSH hardening, fileadmin CSP, SSL/TLS, HTTP method filtering, kernel hardening      |
@@ -47,7 +47,7 @@ installations can be resumed at any step.
 | OS                   | Ubuntu 22.04, 24.04, or 26.04 LTS (fresh installation, nothing else running) |
 | RAM                  | 2 GB minimum recommended                                                     |
 | Disk                 | 4 GB free on `/`                                                             |
-| Internet             | Required (apt, Composer, GitHub for Brotli source)                           |
+| Internet             | Required (apt, Composer; GitHub for the Brotli source on 22.04)              |
 | SSH key              | Public key in `/root/.ssh/authorized_keys` before running                    |
 | Conflicting services | No Apache2, no existing Nginx site configs, ports 80/443 free                |
 
@@ -128,6 +128,7 @@ server-install/
 │   ├── add-php-version.sh                 # Install an additional PHP version side by side
 │   ├── apply-php-settings.sh              # Re-apply optimized PHP settings after updates
 │   ├── migrate-php-repo.sh                # Switch existing servers from ppa:ondrej/php to packages.sury.org
+│   ├── setup-apt-security-source.sh       # Official Ubuntu security archive as second source; adds missing Signed-By lines
 │   ├── toggle-php-slowlog.sh              # Enable/disable PHP-FPM slow log
 │   └── bot-policy/                        # Bot/crawler/search-engine rule management (whiptail TUI)
 │       ├── bot-policy.sh                  # Entry point: --report / --activate / --seed / interactive menu
@@ -167,7 +168,10 @@ server-install/
 
 ### Web Server Stack
 
-- **Nginx** with dynamically compiled Brotli module (matched to installed nginx version)
+- **Nginx** with Brotli. On 24.04 and 26.04 the modules come from the Ubuntu archive (`libnginx-mod-http-brotli-filter`,
+  `-static`, universe): apt keeps them in step with nginx, and they use the system `libbrotli1`, so Brotli library
+  fixes arrive with the security updates. Where Ubuntu has no package (22.04) `ngx_brotli` is compiled against the
+  installed nginx version as before — that build gets no updates through apt
 - **PHP-FPM** — version depends on Ubuntu release (8.3 on 24.04, 8.1 on 22.04, 7.4 on 20.04¹)
 - **MariaDB** — MySQL-compatible, automatically hardened
 - **Redis** — page and section cache for TYPO3, secured with `requirepass`
@@ -566,6 +570,38 @@ fail2ban-client set typo3-fe-login unbanip 203.0.113.10
 `unattended-upgrades` is installed and enabled: security updates from the Ubuntu security pocket are applied
 automatically every day. Automatic reboots are explicitly disabled — kernel updates are installed, but the reboot
 remains a manual decision (`/var/run/reboot-required` signals when one is pending).
+
+Provider mirrors (Hetzner and others) can trail the official Ubuntu archive by hours, sometimes by more than a day.
+`bin/setup-apt-security-source.sh` adds the official `<codename>-security` pocket as a second source, so a fix
+reaches the server as soon as Canonical publishes it. apt installs the highest version it finds in any source; once
+the mirror has caught up nothing changes. `install.sh` runs the same step at the start of the dependency step.
+
+```bash
+bin/setup-apt-security-source.sh --dry-run          # show what would change
+bin/setup-apt-security-source.sh                    # apply (asks before each change)
+bin/setup-apt-security-source.sh --yes              # add the security archive without asking
+bin/setup-apt-security-source.sh --fix-signed-by    # also add the missing Signed-By lines, no prompt
+bin/setup-apt-security-source.sh --remove           # take the security archive entry out again
+```
+
+The script inspects the sources already configured and fits the entry to the system: suite from the Ubuntu codename,
+`security.ubuntu.com` (`ports.ubuntu.com` on non-x86), the components the system already reads, and the Ubuntu
+archive keyring. A stock Ubuntu install already reads the pocket from an official host; then nothing is added. The
+entry lives in `/etc/apt/sources.list.d/ubuntu-security.sources`; `apt update` runs afterwards and a failure rolls
+the change back. A file of that name without the `# Managed by ServerInstall` header is left unchanged. Ubuntu 20.04
+is out of standard support — its fixes need Ubuntu Pro (ESM), no source changes that.
+
+The Hetzner image ships its mirror entries without a `Signed-By` line, so every `apt update` prints
+`Missing Signed-By in the sources.list(5) entry`. The script lists those entries (Ubuntu archive family only;
+third-party sources such as nodesource or sury bring their own key and are never touched). `install.sh` asks whether
+to add the Ubuntu archive keyring; on the command line it needs `--fix-signed-by` or a `y` at the prompt, `--yes`
+alone does not edit existing files. The files are backed up first, to
+`/var/backups/ServerInstall/<timestamp>/<original path>` — not next to the original, because apt reads every file in
+`/etc/apt/sources.list.d/` and prints a notice for each name it does not know.
+
+Every change is tested before it stays: `apt-get update` must show no problem that was not there before, a simulated
+`apt-get -s dist-upgrade` must work and, for `Signed-By`, the list of configured package sources must be identical.
+If a test fails, all files are restored.
 
 ### MariaDB Security
 

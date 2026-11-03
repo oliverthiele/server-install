@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [1.6.0] — 2026-11-03
+
+### Added
+
+- `bin/setup-apt-security-source.sh` and `addUbuntuSecuritySource()` in `lib/system.sh`: read the Ubuntu
+  `<codename>-security` pocket from the official archive in addition to the provider mirror. Hetzner's mirror trailed
+  Canonical by hours to more than a day for a critical security fix, which is the time a server stayed exposed. The
+  entry (`/etc/apt/sources.list.d/ubuntu-security.sources`) is fitted to the system (codename, architecture, existing
+  components, Ubuntu archive keyring) after the existing sources were inspected, is skipped when an official host
+  already serves the pocket, and is rolled back if the apt test fails. A file of that name the installer did not write
+  is left unchanged. `install.sh` runs it at the start of step 2
+- The same script lists apt sources of the Ubuntu archive family without `Signed-By` (the Hetzner image ships its
+  mirror entries that way, so `apt update` prints `Missing Signed-By` every time) and adds the Ubuntu archive keyring:
+  `install.sh` asks first, the script needs `--fix-signed-by` or a `y` at the prompt. Third-party sources are never
+  touched; files are backed up to `/var/backups/ServerInstall/<timestamp>/<original path>` (not next to the original:
+  apt reads every file in `/etc/apt/sources.list.d/` and notes each name it does not know)
+- Each change to the apt sources is tested before it stays: `apt-get update` shows no new problem, a simulated
+  `apt-get -s dist-upgrade` works and, for `Signed-By`, the configured package sources are unchanged. A failed test
+  restores every file
+
+### Changed
+
+- Brotli for nginx comes from the Ubuntu archive where it exists (`libnginx-mod-http-brotli-filter` and `-static`,
+  24.04 and 26.04, universe) instead of a local `ngx_brotli` build. The packages depend on `nginx-abi-<version>`, so
+  apt keeps module and nginx in step, and they link the system `libbrotli1` (main), so fixes in the Brotli library
+  arrive with the security updates. A compiled module carries its own copy of the library and is never updated.
+  22.04 has no package and keeps the compiled build. Existing servers are not converted yet
+
+### Fixed
+
+- `bin/tune-server.sh` now backs up the PHP-FPM pool files to `/var/backups/ServerInstall/<timestamp>/<original path>`
+  instead of `<file>.bak.<timestamp>` next to them, like the apt source changes
+
 ## [1.5.0] — 2026-10-14
 
 ### Changed
@@ -355,6 +390,7 @@ in a single script run.
 - Colorized "INSTALLATION COMPLETE" summary with all credentials and numbered next steps
 - ShellCheck CI workflow (GitHub Actions)
 
+[1.6.0]: https://github.com/oliverthiele/server-install/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/oliverthiele/server-install/compare/v1.4.2...v1.5.0
 [1.4.2]: https://github.com/oliverthiele/server-install/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/oliverthiele/server-install/compare/v1.4.0...v1.4.1
